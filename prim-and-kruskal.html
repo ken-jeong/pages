@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MST 시각화 — Kruskal & Prim</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Noto+Sans+KR:wght@300;400;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F7F7F5;
+    --surface: #FFFFFF;
+    --surface2: #EFEFEC;
+    --border: #DEDED9;
+    --accent-k: #376CA8;
+    --accent-p: #8A5D9F;
+    --accent-mst: #2E7D5B;
+    --text: #1C1C1A;
+    --text-muted: #666661;
+    --node-fill: #FFFFFF;
+    --node-stroke: #C8C8C1;
+    --edge-default: #B8B8B2;
+    --edge-considering: #9A6A28;
+    --edge-rejected: #B94A48;
+    --edge-mst: #2E7D5B;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans KR', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 24px 32px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    width: min(1040px, 100%);
+    margin: 0 auto;
+  }
+
+  header h1 {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.4rem;
+    letter-spacing: 0;
+    color: var(--text);
+  }
+
+  header h1 span.k { color: var(--accent-k); }
+  header h1 span.p { color: var(--accent-p); }
+
+  .tab-bar {
+    display: flex;
+    gap: 4px;
+    margin-left: auto;
+  }
+
+  .tab-btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.75rem;
+    padding: 8px 20px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+  }
+
+  .tab-btn.active-k { border-color: var(--accent-k); color: var(--accent-k); background: #F2F6FC; }
+  .tab-btn.active-p { border-color: var(--accent-p); color: var(--accent-p); background: #F6F3FA; }
+
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+    width: min(1040px, 100%);
+    margin: 0 auto;
+    border-left: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+  }
+
+  .canvas-area {
+    position: relative;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  svg#graph {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    width: 100%;
+    height: 420px;
+  }
+
+  .controls {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .btn {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    padding: 8px 18px;
+    border: 1px solid;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.18s;
+    letter-spacing: 0.04em;
+  }
+
+  .btn-run-k { border-color: var(--accent-k); color: var(--accent-k); }
+  .btn-run-k:hover { background: #F2F6FC; }
+  .btn-run-p { border-color: var(--accent-p); color: var(--accent-p); }
+  .btn-run-p:hover { background: #F6F3FA; }
+  .btn-reset { border-color: var(--border); color: var(--text-muted); }
+  .btn-reset:hover { border-color: var(--text-muted); color: var(--text); }
+  .btn-step { border-color: var(--edge-considering); color: var(--edge-considering); }
+  .btn-step:hover { background: #FAF6EF; }
+  .btn-auto { border-color: var(--accent-mst); color: var(--accent-mst); }
+  .btn-auto:hover { background: #F1FAF5; }
+
+  .speed-ctrl {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 80px;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 12px; height: 12px;
+    border-radius: 50%;
+    background: var(--accent-mst);
+    cursor: pointer;
+  }
+
+  .algo-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    padding: 4px 12px;
+    border-radius: 3px;
+    letter-spacing: 0.08em;
+  }
+  .badge-k { background: #F2F6FC; color: var(--accent-k); border: 1px solid #BDCEE4; }
+  .badge-p { background: #F6F3FA; color: var(--accent-p); border: 1px solid #D4C9DF; }
+
+  .sidebar {
+    border-left: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+  }
+
+  .sidebar-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-section h3 {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  #step-desc {
+    font-size: 0.85rem;
+    line-height: 1.6;
+    color: var(--text);
+    min-height: 60px;
+  }
+
+  .edge-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 200px;
+    overflow-y: auto;
+  }
+
+  .edge-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    background: var(--surface2);
+    transition: all 0.3s;
+  }
+
+  .edge-item .dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .edge-item.considering { background: #FAF6EF; border-left: 2px solid var(--edge-considering); }
+  .edge-item.accepted { background: #F1FAF5; border-left: 2px solid var(--accent-mst); }
+  .edge-item.rejected { background: #FFF5F4; border-left: 2px solid var(--edge-rejected); opacity: 0.7; }
+
+  .stat-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .stat-box {
+    background: var(--surface2);
+    border-radius: 6px;
+    padding: 12px;
+    text-align: center;
+  }
+
+  .stat-box .val {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.4rem;
+    font-weight: 700;
+    color: var(--accent-mst);
+  }
+
+  .stat-box .lbl {
+    font-size: 0.68rem;
+    color: var(--text-muted);
+    margin-top: 2px;
+  }
+
+  /* legend */
+  .legend {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    padding: 0 24px 12px;
+  }
+
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    font-family: 'Space Mono', monospace;
+  }
+
+  .legend-line {
+    width: 24px;
+    height: 3px;
+    border-radius: 2px;
+  }
+
+  /* scrollbar */
+  ::-webkit-scrollbar { width: 5px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  .pq-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    max-height: 160px;
+    overflow-y: auto;
+  }
+
+  .pq-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 10px;
+    background: var(--surface2);
+    border-radius: 3px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+  }
+
+  .pq-item.top { color: var(--edge-considering); background: #FAF6EF; }
+
+  @media (max-width: 820px) {
+    header { flex-direction: column; align-items: stretch; padding: 20px; }
+    .tab-bar { margin-left: 0; }
+    .main { grid-template-columns: 1fr; border-left: none; border-right: none; }
+    .sidebar { border-left: none; border-top: 1px solid var(--border); }
+    svg#graph { height: 340px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>MST · <span class="k">Kruskal</span> & <span class="p">Prim</span></h1>
+  <div class="tab-bar">
+    <button class="tab-btn active-k" id="tab-k" onclick="switchAlgo('kruskal')">KRUSKAL</button>
+    <button class="tab-btn" id="tab-p" onclick="switchAlgo('prim')">PRIM</button>
+  </div>
+</header>
+
+<div class="main">
+  <div class="canvas-area">
+    <svg id="graph" viewBox="0 0 700 400"></svg>
+
+    <div class="legend">
+      <div class="legend-item"><div class="legend-line" style="background:var(--edge-default);border:1px solid var(--node-stroke)"></div> 기본 간선</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--edge-considering)"></div> 검토 중</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--accent-mst)"></div> MST 포함</div>
+      <div class="legend-item"><div class="legend-line" style="background:var(--edge-rejected)"></div> 사이클(제외)</div>
+    </div>
+
+    <div class="controls">
+      <span class="algo-badge badge-k" id="algo-badge">KRUSKAL</span>
+      <button class="btn btn-run-k" id="btn-start" onclick="startAlgo()">▶ 시작</button>
+      <button class="btn btn-step" onclick="stepAlgo()">→ 단계</button>
+      <button class="btn btn-auto" id="btn-auto" onclick="toggleAuto()">⚡ 자동 실행</button>
+      <button class="btn btn-reset" onclick="resetAll()">↺ 초기화</button>
+      <div class="speed-ctrl">
+        <span>속도</span>
+        <input type="range" id="speed" min="1" max="10" value="5">
+      </div>
+    </div>
+  </div>
+
+  <div class="sidebar">
+    <div class="sidebar-section">
+      <h3>현재 상태</h3>
+      <div id="step-desc">알고리즘을 선택하고 시작하세요.</div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3 id="queue-title">간선 목록 (정렬됨)</h3>
+      <div class="edge-list" id="edge-list"></div>
+    </div>
+
+    <div class="sidebar-section" id="pq-section" style="display:none">
+      <h3>우선순위 큐 (Prim)</h3>
+      <div class="pq-list" id="pq-list"></div>
+    </div>
+
+    <div class="sidebar-section">
+      <h3>통계</h3>
+      <div class="stat-grid">
+        <div class="stat-box">
+          <div class="val" id="stat-mst-w">0</div>
+          <div class="lbl">MST 총 비용</div>
+        </div>
+        <div class="stat-box">
+          <div class="val" id="stat-edges">0</div>
+          <div class="lbl">선택된 간선</div>
+        </div>
+        <div class="stat-box">
+          <div class="val" id="stat-step">0</div>
+          <div class="lbl">단계</div>
+        </div>
+        <div class="stat-box">
+          <div class="val" id="stat-rejected">0</div>
+          <div class="lbl">제외 간선</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Graph Definition ───────────────────────────────────────────────
+const NODES = [
+  { id: 0, x: 120, y: 80,  label: 'A' },
+  { id: 1, x: 320, y: 60,  label: 'B' },
+  { id: 2, x: 540, y: 90,  label: 'C' },
+  { id: 3, x: 80,  y: 230, label: 'D' },
+  { id: 4, x: 260, y: 200, label: 'E' },
+  { id: 5, x: 450, y: 220, label: 'F' },
+  { id: 6, x: 620, y: 260, label: 'G' },
+  { id: 7, x: 180, y: 340, label: 'H' },
+  { id: 8, x: 380, y: 350, label: 'I' },
+];
+
+const EDGES = [
+  { u: 0, v: 1, w: 4 },
+  { u: 0, v: 3, w: 2 },
+  { u: 1, v: 2, w: 3 },
+  { u: 1, v: 4, w: 5 },
+  { u: 2, v: 5, w: 6 },
+  { u: 2, v: 6, w: 7 },
+  { u: 3, v: 4, w: 3 },
+  { u: 3, v: 7, w: 8 },
+  { u: 4, v: 5, w: 4 },
+  { u: 4, v: 7, w: 2 },
+  { u: 4, v: 8, w: 6 },
+  { u: 5, v: 6, w: 3 },
+  { u: 5, v: 8, w: 5 },
+  { u: 6, v: 8, w: 4 },  // extra
+  { u: 7, v: 8, w: 7 },
+];
+
+// ─── State ──────────────────────────────────────────────────────────
+let currentAlgo = 'kruskal';
+let steps = [];
+let stepIdx = 0;
+let autoTimer = null;
+let isRunning = false;
+const THEME = {
+  edgeDefault: '#B8B8B2',
+  edgeConsidering: '#9A6A28',
+  edgeRejected: '#B94A48',
+  edgeMst: '#2E7D5B',
+  nodeFill: '#FFFFFF',
+  nodeStroke: '#C8C8C1',
+  kruskal: '#376CA8',
+  prim: '#8A5D9F',
+  labelBg: '#FFFFFF',
+  textMuted: '#666661'
+};
+
+// ─── DSU (for Kruskal) ──────────────────────────────────────────────
+class DSU {
+  constructor(n) { this.p = [...Array(n).keys()]; this.r = Array(n).fill(0); }
+  find(x) { if (this.p[x] !== x) this.p[x] = this.find(this.p[x]); return this.p[x]; }
+  union(x, y) {
+    let px = this.find(x), py = this.find(y);
+    if (px === py) return false;
+    if (this.r[px] < this.r[py]) [px, py] = [py, px];
+    this.p[py] = px;
+    if (this.r[px] === this.r[py]) this.r[px]++;
+    return true;
+  }
+}
+
+// ─── Algorithm Builders ─────────────────────────────────────────────
+function buildKruskalSteps() {
+  const sorted = [...EDGES].sort((a, b) => a.w - b.w);
+  const dsu = new DSU(NODES.length);
+  const result = [];
+  let mstW = 0, mstEdges = [], rejectedEdges = [];
+
+  result.push({
+    desc: `<b>Kruskal</b>: 모든 간선을 가중치 오름차순으로 정렬합니다.<br>총 ${sorted.length}개 간선: ${sorted.map(e=>`${NODES[e.u].label}-${NODES[e.v].label}(${e.w})`).join(', ')}`,
+    considering: null, mstEdges: [], rejectedEdges: [],
+    mstW: 0, sortedEdges: sorted, currentIdx: -1
+  });
+
+  for (let i = 0; i < sorted.length; i++) {
+    const e = sorted[i];
+    const canUnion = dsu.union(e.u, e.v);
+
+    if (canUnion) {
+      mstEdges = [...mstEdges, e];
+      mstW += e.w;
+      result.push({
+        desc: `간선 <b>${NODES[e.u].label}-${NODES[e.v].label}</b> (가중치 ${e.w}) ✅ <br>사이클 없음 → MST에 추가! (현재 비용: ${mstW})`,
+        considering: e, mstEdges: [...mstEdges], rejectedEdges: [...rejectedEdges],
+        mstW, sortedEdges: sorted, currentIdx: i, accepted: true
+      });
+    } else {
+      rejectedEdges = [...rejectedEdges, e];
+      result.push({
+        desc: `간선 <b>${NODES[e.u].label}-${NODES[e.v].label}</b> (가중치 ${e.w}) ❌ <br>사이클 형성 → 제외`,
+        considering: e, mstEdges: [...mstEdges], rejectedEdges: [...rejectedEdges],
+        mstW, sortedEdges: sorted, currentIdx: i, accepted: false
+      });
+    }
+
+    if (mstEdges.length === NODES.length - 1) {
+      result.push({
+        desc: `🎉 완료! MST 구성 완료.<br>총 비용: <b>${mstW}</b> | 간선 수: ${mstEdges.length}`,
+        considering: null, mstEdges: [...mstEdges], rejectedEdges: [...rejectedEdges],
+        mstW, sortedEdges: sorted, currentIdx: -1, done: true
+      });
+      break;
+    }
+  }
+  return result;
+}
+
+function buildPrimSteps() {
+  const n = NODES.length;
+  const adj = Array.from({length: n}, () => []);
+  EDGES.forEach(e => {
+    adj[e.u].push({to: e.v, w: e.w, edge: e});
+    adj[e.v].push({to: e.u, w: e.w, edge: e});
+  });
+
+  const result = [];
+  const inMST = Array(n).fill(false);
+  const mstEdges = [];
+  let mstW = 0;
+  let pq = []; // {w, u, v, edge}
+  const rejectedEdges = [];
+
+  const startNode = 0;
+  inMST[startNode] = true;
+
+  // add neighbors of start
+  adj[startNode].forEach(({to, w, edge}) => {
+    pq.push({w, u: startNode, v: to, edge});
+  });
+  pq.sort((a,b) => a.w - b.w);
+
+  result.push({
+    desc: `<b>Prim</b>: 노드 <b>${NODES[startNode].label}</b>에서 시작.<br>인접 간선을 우선순위 큐에 추가합니다.`,
+    mstEdges: [], rejectedEdges: [], considering: null, mstW: 0,
+    inMST: [...inMST], pq: [...pq]
+  });
+
+  while (pq.length > 0 && mstEdges.length < n - 1) {
+    const top = pq.shift();
+    const {w, u, v, edge} = top;
+
+    if (inMST[v]) {
+      rejectedEdges.push(edge);
+      result.push({
+        desc: `간선 <b>${NODES[u].label}-${NODES[v].label}</b> (가중치 ${w}) ❌ <br>노드 ${NODES[v].label}이미 MST에 포함 → 제외`,
+        mstEdges: [...mstEdges], rejectedEdges: [...rejectedEdges],
+        considering: edge, mstW, inMST: [...inMST], pq: [...pq], accepted: false
+      });
+      continue;
+    }
+
+    inMST[v] = true;
+    mstEdges.push(edge);
+    mstW += w;
+
+    // add new neighbors
+    adj[v].forEach(({to, w: nw, edge: ne}) => {
+      if (!inMST[to]) pq.push({w: nw, u: v, v: to, edge: ne});
+    });
+    pq.sort((a,b) => a.w - b.w);
+
+    result.push({
+      desc: `간선 <b>${NODES[u].label}-${NODES[v].label}</b> (가중치 ${w}) ✅ <br>노드 ${NODES[v].label} MST에 추가! (현재 비용: ${mstW})`,
+      mstEdges: [...mstEdges], rejectedEdges: [...rejectedEdges],
+      considering: edge, mstW, inMST: [...inMST], pq: [...pq], accepted: true
+    });
+  }
+
+  result.push({
+    desc: `🎉 완료! Prim MST 구성 완료.<br>총 비용: <b>${mstW}</b> | 간선 수: ${mstEdges.length}`,
+    mstEdges: [...mstEdges], rejectedEdges: [...rejectedEdges],
+    considering: null, mstW, inMST: [...inMST], pq: [], done: true
+  });
+
+  return result;
+}
+
+// ─── Rendering ──────────────────────────────────────────────────────
+function renderGraph(state) {
+  const svg = document.getElementById('graph');
+  svg.innerHTML = '';
+  const ns = 'http://www.w3.org/2000/svg';
+
+  const mstSet = new Set(state.mstEdges.map(e => edgeKey(e)));
+  const rejSet = new Set(state.rejectedEdges.map(e => edgeKey(e)));
+  const considerKey = state.considering ? edgeKey(state.considering) : null;
+
+  // Draw edges
+  EDGES.forEach(e => {
+    const key = edgeKey(e);
+    const n1 = NODES[e.u], n2 = NODES[e.v];
+
+    // Glow for MST edges
+    if (mstSet.has(key)) {
+      const glow = document.createElementNS(ns, 'line');
+      glow.setAttribute('x1', n1.x); glow.setAttribute('y1', n1.y);
+      glow.setAttribute('x2', n2.x); glow.setAttribute('y2', n2.y);
+      glow.setAttribute('stroke', THEME.edgeMst); glow.setAttribute('stroke-width', '8');
+      glow.setAttribute('stroke-opacity', '0.16'); glow.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(glow);
+    }
+
+    const line = document.createElementNS(ns, 'line');
+    line.setAttribute('x1', n1.x); line.setAttribute('y1', n1.y);
+    line.setAttribute('x2', n2.x); line.setAttribute('y2', n2.y);
+    line.setAttribute('stroke-linecap', 'round');
+
+    if (key === considerKey) {
+      line.setAttribute('stroke', THEME.edgeConsidering);
+      line.setAttribute('stroke-width', '3');
+      line.setAttribute('stroke-dasharray', '6,3');
+    } else if (mstSet.has(key)) {
+      line.setAttribute('stroke', THEME.edgeMst);
+      line.setAttribute('stroke-width', '3');
+    } else if (rejSet.has(key)) {
+      line.setAttribute('stroke', THEME.edgeRejected);
+      line.setAttribute('stroke-width', '1.5');
+      line.setAttribute('stroke-opacity', '0.4');
+      line.setAttribute('stroke-dasharray', '3,4');
+    } else {
+      line.setAttribute('stroke', THEME.edgeDefault);
+      line.setAttribute('stroke-width', '1.5');
+    }
+    svg.appendChild(line);
+
+    // Weight label
+    const mx = (n1.x + n2.x) / 2, my = (n1.y + n2.y) / 2;
+    const bg = document.createElementNS(ns, 'rect');
+    bg.setAttribute('x', mx - 9); bg.setAttribute('y', my - 9);
+    bg.setAttribute('width', 18); bg.setAttribute('height', 14);
+    bg.setAttribute('rx', 3); bg.setAttribute('fill', THEME.labelBg);
+    bg.setAttribute('opacity', '0.92');
+    svg.appendChild(bg);
+
+    const txt = document.createElementNS(ns, 'text');
+    txt.setAttribute('x', mx); txt.setAttribute('y', my + 2);
+    txt.setAttribute('text-anchor', 'middle');
+    txt.setAttribute('font-size', '10');
+    txt.setAttribute('font-family', 'Space Mono, monospace');
+    txt.setAttribute('fill', key === considerKey ? THEME.edgeConsidering : mstSet.has(key) ? THEME.edgeMst : THEME.textMuted);
+    txt.textContent = e.w;
+    svg.appendChild(txt);
+  });
+
+  // Draw nodes
+  NODES.forEach(n => {
+    const inMST = state.inMST && state.inMST[n.id];
+
+    // Glow
+    if (inMST) {
+      const glow = document.createElementNS(ns, 'circle');
+      glow.setAttribute('cx', n.x); glow.setAttribute('cy', n.y); glow.setAttribute('r', 22);
+      glow.setAttribute('fill', currentAlgo === 'prim' ? '#F6F3FA' : '#F2F6FC');
+      svg.appendChild(glow);
+    }
+
+    const circle = document.createElementNS(ns, 'circle');
+    circle.setAttribute('cx', n.x); circle.setAttribute('cy', n.y); circle.setAttribute('r', 16);
+    circle.setAttribute('fill', THEME.nodeFill);
+    circle.setAttribute('stroke', inMST
+      ? (currentAlgo === 'prim' ? THEME.prim : THEME.kruskal)
+      : THEME.nodeStroke);
+    circle.setAttribute('stroke-width', inMST ? '2.5' : '1.5');
+    svg.appendChild(circle);
+
+    const label = document.createElementNS(ns, 'text');
+    label.setAttribute('x', n.x); label.setAttribute('y', n.y + 5);
+    label.setAttribute('text-anchor', 'middle');
+    label.setAttribute('font-size', '13');
+    label.setAttribute('font-weight', 'bold');
+    label.setAttribute('font-family', 'Space Mono, monospace');
+    label.setAttribute('fill', inMST
+      ? (currentAlgo === 'prim' ? THEME.prim : THEME.kruskal)
+      : THEME.textMuted);
+    label.textContent = n.label;
+    svg.appendChild(label);
+  });
+}
+
+function renderSidebar(state) {
+  document.getElementById('step-desc').innerHTML = state.desc;
+  document.getElementById('stat-mst-w').textContent = state.mstW;
+  document.getElementById('stat-edges').textContent = state.mstEdges.length;
+  document.getElementById('stat-step').textContent = stepIdx;
+  document.getElementById('stat-rejected').textContent = state.rejectedEdges.length;
+
+  // Edge list
+  const el = document.getElementById('edge-list');
+  el.innerHTML = '';
+
+  if (currentAlgo === 'kruskal' && state.sortedEdges) {
+    state.sortedEdges.forEach((e, i) => {
+      const key = edgeKey(e);
+      const mstSet = new Set(state.mstEdges.map(x => edgeKey(x)));
+      const rejSet = new Set(state.rejectedEdges.map(x => edgeKey(x)));
+      const considerKey = state.considering ? edgeKey(state.considering) : null;
+
+      const div = document.createElement('div');
+      div.className = 'edge-item' +
+        (key === considerKey ? ' considering' :
+         mstSet.has(key) ? ' accepted' :
+         rejSet.has(key) ? ' rejected' : '');
+
+      const dot = document.createElement('div');
+      dot.className = 'dot';
+      dot.style.background = key === considerKey ? THEME.edgeConsidering : mstSet.has(key) ? THEME.edgeMst : rejSet.has(key) ? THEME.edgeRejected : THEME.nodeStroke;
+
+      div.appendChild(dot);
+      div.innerHTML += `${NODES[e.u].label}—${NODES[e.v].label} &nbsp;<span style="color:var(--edge-considering)">${e.w}</span>`;
+      el.appendChild(div);
+    });
+
+    document.getElementById('queue-title').textContent = '간선 목록 (가중치 정렬)';
+    document.getElementById('pq-section').style.display = 'none';
+  } else if (currentAlgo === 'prim') {
+    // Show MST edges
+    document.getElementById('queue-title').textContent = 'MST 간선';
+    state.mstEdges.forEach(e => {
+      const div = document.createElement('div');
+      div.className = 'edge-item accepted';
+      div.innerHTML = `<div class="dot" style="background:var(--accent-mst)"></div>${NODES[e.u].label}—${NODES[e.v].label} &nbsp;<span style="color:var(--edge-considering)">${e.w}</span>`;
+      el.appendChild(div);
+    });
+
+    // PQ
+    document.getElementById('pq-section').style.display = 'block';
+    const pqEl = document.getElementById('pq-list');
+    pqEl.innerHTML = '';
+    if (state.pq && state.pq.length > 0) {
+      state.pq.forEach((item, i) => {
+        const div = document.createElement('div');
+        div.className = 'pq-item' + (i === 0 ? ' top' : '');
+        div.innerHTML = `<span>${NODES[item.u].label}→${NODES[item.v].label}</span><span>${item.w}</span>`;
+        pqEl.appendChild(div);
+      });
+    } else {
+      pqEl.innerHTML = '<div style="color:var(--text-muted);font-size:0.72rem;padding:8px">비어 있음</div>';
+    }
+  }
+}
+
+// ─── Helpers ────────────────────────────────────────────────────────
+function edgeKey(e) {
+  return `${Math.min(e.u,e.v)}-${Math.max(e.u,e.v)}`;
+}
+
+function emptyState() {
+  return { desc: '알고리즘을 선택하고 시작하세요.', mstEdges: [], rejectedEdges: [], considering: null, mstW: 0, inMST: Array(NODES.length).fill(false), pq: [], sortedEdges: [] };
+}
+
+// ─── Controls ───────────────────────────────────────────────────────
+function switchAlgo(algo) {
+  currentAlgo = algo;
+  stopAuto();
+  steps = [];
+  stepIdx = 0;
+  isRunning = false;
+
+  document.getElementById('tab-k').className = 'tab-btn' + (algo === 'kruskal' ? ' active-k' : '');
+  document.getElementById('tab-p').className = 'tab-btn' + (algo === 'prim' ? ' active-p' : '');
+  document.getElementById('algo-badge').textContent = algo.toUpperCase();
+  document.getElementById('algo-badge').className = 'algo-badge ' + (algo === 'kruskal' ? 'badge-k' : 'badge-p');
+  document.getElementById('btn-start').className = 'btn ' + (algo === 'kruskal' ? 'btn-run-k' : 'btn-run-p');
+
+  const s = emptyState();
+  renderGraph(s);
+  renderSidebar(s);
+}
+
+function startAlgo() {
+  stopAuto();
+  steps = currentAlgo === 'kruskal' ? buildKruskalSteps() : buildPrimSteps();
+  stepIdx = 0;
+  isRunning = true;
+  applyStep();
+}
+
+function stepAlgo() {
+  if (!isRunning) startAlgo();
+  else if (stepIdx < steps.length - 1) { stepIdx++; applyStep(); }
+}
+
+function applyStep() {
+  if (stepIdx >= steps.length) return;
+  const s = steps[stepIdx];
+  renderGraph(s);
+  renderSidebar(s);
+}
+
+function toggleAuto() {
+  if (autoTimer) { stopAuto(); return; }
+  if (!isRunning) startAlgo();
+  const btn = document.getElementById('btn-auto');
+  btn.textContent = '⏸ 정지';
+  const speed = document.getElementById('speed').value;
+  const delay = Math.round(1200 / speed);
+  autoTimer = setInterval(() => {
+    if (stepIdx < steps.length - 1) { stepIdx++; applyStep(); }
+    else stopAuto();
+  }, delay);
+}
+
+function stopAuto() {
+  clearInterval(autoTimer);
+  autoTimer = null;
+  document.getElementById('btn-auto').textContent = '⚡ 자동 실행';
+}
+
+function resetAll() {
+  stopAuto();
+  steps = [];
+  stepIdx = 0;
+  isRunning = false;
+  const s = emptyState();
+  renderGraph(s);
+  renderSidebar(s);
+}
+
+// ─── Init ────────────────────────────────────────────────────────────
+const init = emptyState();
+renderGraph(init);
+renderSidebar(init);
+</script>
+</body>
+</html>

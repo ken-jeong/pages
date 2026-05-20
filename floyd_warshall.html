@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Floyd-Warshall 알고리즘 시각화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Pretendard:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F7F5;
+    --surface: #FFFFFF;
+    --surface2: #EFEFEC;
+    --border: #DEDED9;
+    --border2: #C8C8C1;
+    --text: #1C1C1A;
+    --text2: #666661;
+    --text3: #9C9C95;
+    --accent: #376CA8;
+    --accent-dim: #F2F6FC;
+    --green: #2E7D5B;
+    --green-dim: #F1FAF5;
+    --amber: #9A6A28;
+    --amber-dim: #FAF6EF;
+    --red: #B94A48;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Pretendard', sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 40px 20px 60px;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+  .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--accent);
+    background: var(--accent-dim);
+    border: 1px solid rgba(91,138,240,0.25);
+    padding: 4px 10px;
+    border-radius: 8px;
+    letter-spacing: 0.08em;
+    margin-bottom: 16px;
+  }
+  h1 {
+    font-size: clamp(26px, 5vw, 40px);
+    font-weight: 600;
+    letter-spacing: 0;
+    color: var(--text);
+    margin-bottom: 10px;
+  }
+  h1 span { color: var(--accent); }
+  .subtitle {
+    font-size: 15px;
+    color: var(--text2);
+    font-weight: 300;
+    letter-spacing: 0.01em;
+  }
+
+  /* Layout */
+  .wrapper {
+    width: 100%;
+    max-width: 900px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 24px;
+  }
+
+  .card-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  /* Graph SVG */
+  #graph-card svg {
+    width: 100%;
+    max-width: 380px;
+    display: block;
+    margin: 0 auto;
+  }
+
+  /* Matrix grid */
+  .matrices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+  }
+  @media (max-width: 600px) { .matrices { grid-template-columns: 1fr; } }
+
+  .matrix-wrap { overflow-x: auto; }
+  table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 14px; }
+  td, th {
+    width: 48px; height: 40px;
+    text-align: center;
+    border: 1px solid var(--border);
+    transition: background .35s, color .35s;
+    color: var(--text2);
+  }
+  th {
+    background: var(--surface2);
+    color: var(--text3);
+    font-size: 12px;
+    font-weight: 500;
+  }
+  td { color: var(--text); }
+  td.self { color: var(--text3); }
+
+  td.checking  { background: rgba(91,138,240,0.18); color: var(--accent); }
+  td.candidate { background: var(--amber-dim); color: var(--amber); }
+  td.updated   { background: var(--green-dim); color: var(--green); font-weight: 500; }
+  td.nochange  { background: rgba(91,138,240,0.08); color: var(--accent); }
+
+  /* Info box */
+  .info-box {
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 16px 20px;
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text2);
+    min-height: 80px;
+  }
+  .info-box strong { color: var(--text); }
+  .info-box .ok { color: var(--green); font-weight: 500; }
+  .info-box .no { color: var(--accent); }
+  .info-box .formula {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 13px;
+    background: var(--surface);
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin: 0 2px;
+  }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  button {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 500;
+    padding: 9px 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    transition: background .15s, border-color .15s, transform .1s;
+    letter-spacing: 0.01em;
+  }
+  button:hover { background: #FBFBFA; border-color: #B8B8B2; }
+  button:active { transform: scale(0.97); }
+  button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  button.primary:hover { background: #6e97f2; }
+  button:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
+
+  .progress {
+    margin-left: auto;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: var(--text2);
+    padding-top: 4px;
+  }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; }
+  .dot.updated  { background: var(--green); }
+  .dot.checking { background: var(--accent); }
+  .dot.candidate{ background: var(--amber); }
+
+  /* Done state */
+  .done-banner {
+    display: none;
+    text-align: center;
+    padding: 12px;
+    background: var(--green-dim);
+    border: 1px solid rgba(62,207,114,0.2);
+    border-radius: 8px;
+    font-size: 14px;
+    color: var(--green);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+  }
+  .done-banner.show { display: block; }
+
+  /* Footer formula */
+  .formula-card {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px 24px;
+    font-family: var(--mono);
+    font-size: 15px;
+    color: var(--text2);
+    text-align: center;
+    letter-spacing: 0.02em;
+  }
+  .formula-card span { color: var(--accent); }
+  .formula-card small { display: block; font-family: var(--sans); font-size: 12px; color: var(--text3); margin-top: 8px; letter-spacing: 0.01em; }
+
+  #graph-card svg line { stroke: #B8B8B2; }
+  #graph-card svg g[fill="#6b7090"] { fill: var(--muted, #666661); }
+  #graph-card svg circle { fill: var(--surface); stroke: var(--border2); }
+  #graph-card svg text[fill="#e8eaf0"] { fill: var(--text); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="tag">ALGORITHM VISUALIZER</div>
+  <h1>Floyd-<span>Warshall</span></h1>
+  <p class="subtitle">모든 쌍 최단 경로 알고리즘 — 단계별 시각화</p>
+</header>
+
+<div class="wrapper">
+
+  <!-- Graph -->
+  <div class="card" id="graph-card">
+    <div class="card-label">그래프</div>
+    <svg viewBox="0 0 380 210">
+      <defs>
+        <marker id="arr" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </marker>
+      </defs>
+      <!-- Edges -->
+      <g fill="none" stroke="#B8B8B2" stroke-width="1.4" marker-end="url(#arr)">
+        <line x1="78"  y1="88"  x2="178" y2="48"/>
+        <line x1="76"  y1="102" x2="76"  y2="158"/>
+        <line x1="198" y1="56"  x2="290" y2="100"/>
+        <line x1="280" y1="120" x2="104" y2="162"/>
+      </g>
+      <!-- Edge weights -->
+      <g fill="#666661" font-family="DM Mono, monospace" font-size="13" text-anchor="middle">
+        <text x="132" y="58">3</text>
+        <text x="58"  y="132">8</text>
+        <text x="252" y="74">2</text>
+        <text x="200" y="158">-4</text>
+      </g>
+      <!-- Nodes -->
+      <g id="gnodes">
+        <circle cx="76"  cy="94"  r="26" fill="#FFFFFF" stroke="#C8C8C1" stroke-width="1.5"/>
+        <text x="76"  y="94"  text-anchor="middle" dominant-baseline="central" fill="#1C1C1A" font-family="Pretendard,sans-serif" font-size="15" font-weight="500">1</text>
+        <circle cx="192" cy="44"  r="26" fill="#FFFFFF" stroke="#C8C8C1" stroke-width="1.5"/>
+        <text x="192" y="44"  text-anchor="middle" dominant-baseline="central" fill="#1C1C1A" font-family="Pretendard,sans-serif" font-size="15" font-weight="500">2</text>
+        <circle cx="304" cy="110" r="26" fill="#FFFFFF" stroke="#C8C8C1" stroke-width="1.5"/>
+        <text x="304" y="110" text-anchor="middle" dominant-baseline="central" fill="#1C1C1A" font-family="Pretendard,sans-serif" font-size="15" font-weight="500">3</text>
+        <circle cx="86"  cy="172" r="26" fill="#FFFFFF" stroke="#C8C8C1" stroke-width="1.5"/>
+        <text x="86"  y="172" text-anchor="middle" dominant-baseline="central" fill="#1C1C1A" font-family="Pretendard,sans-serif" font-size="15" font-weight="500">4</text>
+      </g>
+    </svg>
+  </div>
+
+  <!-- Matrices -->
+  <div class="matrices">
+    <div class="card">
+      <div class="card-label">현재 거리 행렬</div>
+      <div class="matrix-wrap"><table id="dist-table"></table></div>
+    </div>
+    <div class="card">
+      <div class="card-label">초기 거리 행렬</div>
+      <div class="matrix-wrap"><table id="init-table"></table></div>
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div class="card">
+    <div class="card-label">단계 설명</div>
+    <div class="info-box" id="info">▶ 아래 버튼을 눌러 단계별로 확인하세요.</div>
+    <div class="done-banner" id="done-banner">✅ 모든 노드 쌍의 최단 거리 계산 완료!</div>
+  </div>
+
+  <!-- Controls -->
+  <div class="card">
+    <div class="controls" style="margin-bottom:16px">
+      <button onclick="reset()">↺ 초기화</button>
+      <button class="primary" onclick="nextStep()" id="btn-next">다음 단계 →</button>
+      <button onclick="autoPlay()" id="btn-auto">▶ 자동 실행</button>
+      <div class="progress" id="progress"></div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="dot checking"></div> 비교 중인 경로</div>
+      <div class="legend-item"><div class="dot candidate"></div> 경유 경로 값</div>
+      <div class="legend-item"><div class="dot updated"></div> 거리 단축됨</div>
+    </div>
+  </div>
+
+  <!-- Formula -->
+  <div class="formula-card">
+    <span>dist[i][j]</span> = min(<span>dist[i][j]</span>, <span>dist[i][k]</span> + <span>dist[k][j]</span>)
+    <small>모든 노드 K를 경유지로 시도 · 시간 복잡도 O(V³)</small>
+  </div>
+
+</div>
+
+<script>
+const INF = Infinity;
+const initDist = [
+  [0,   3,   INF, 8  ],
+  [INF, 0,   2,   INF],
+  [INF, INF, 0,   INF],
+  [INF, INF, -4,  0  ]
+];
+
+let dist, steps, stepIdx, timer;
+
+function copy(m){ return m.map(r=>r.slice()); }
+function fmt(v){ return v===INF ? '∞' : v; }
+
+function buildSteps(){
+  const s=[], d=copy(initDist), n=4;
+  for(let k=0;k<n;k++){
+    for(let i=0;i<n;i++){
+      for(let j=0;j<n;j++){
+        const via = d[i][k]+d[k][j];
+        const improved = via < d[i][j];
+        s.push({k,i,j,mat:copy(d),improved,old:d[i][j],via,viaIK:d[i][k],viaKJ:d[k][j]});
+        if(improved) d[i][j]=via;
+      }
+    }
+  }
+  s.push({k:-1,i:-1,j:-1,mat:copy(d),done:true});
+  return s;
+}
+
+function renderTable(id, mat, hi){
+  const t=document.getElementById(id), n=4;
+  let html='<tr><th></th>';
+  for(let j=0;j<n;j++) html+=`<th>${j+1}</th>`;
+  html+='</tr>';
+  for(let i=0;i<n;i++){
+    html+=`<tr><th>${i+1}</th>`;
+    for(let j=0;j<n;j++){
+      let cls='';
+      if(i===j) cls='self';
+      if(hi && !hi.done){
+        if(i===hi.i && j===hi.j){
+          cls = hi.improved ? 'updated' : 'nochange checking';
+        } else if((i===hi.i&&j===hi.k)||(i===hi.k&&j===hi.j)){
+          cls='candidate';
+        }
+      }
+      html+=`<td class="${cls}">${fmt(mat[i][j])}</td>`;
+    }
+    html+='</tr>';
+  }
+  t.innerHTML=html;
+}
+
+function applyStep(){
+  const s=steps[stepIdx];
+  renderTable('dist-table', s.mat, s);
+  const prog=document.getElementById('progress');
+  const done=document.getElementById('done-banner');
+  const info=document.getElementById('info');
+
+  if(s.done){
+    prog.textContent=`완료 (${steps.length-1}단계)`;
+    done.classList.add('show');
+    document.getElementById('btn-next').disabled=true;
+    info.innerHTML='모든 경유 노드 조합을 검사했습니다. 최단 거리 행렬이 완성되었습니다.';
+    return;
+  }
+
+  done.classList.remove('show');
+  prog.textContent=`${stepIdx} / ${steps.length-1}`;
+  const k=s.k+1, i=s.i+1, j=s.j+1;
+
+  if(s.improved){
+    info.innerHTML=`경유 노드 <strong>K=${k}</strong> 검사 중 &nbsp;→&nbsp; dist[<strong>${i}</strong>][<strong>${j}</strong>] <span class="formula">${fmt(s.old)}</span> → <span class="formula">${fmt(s.via)}</span><br>
+    ${i}→${k}의 거리 <span class="formula">${fmt(s.viaIK)}</span> + ${k}→${j}의 거리 <span class="formula">${fmt(s.viaKJ)}</span> = <span class="formula">${fmt(s.via)}</span> &nbsp;<span class="ok">✓ 더 짧습니다. 업데이트!</span>`;
+  } else {
+    const via=s.via===INF?'∞':s.via;
+    info.innerHTML=`경유 노드 <strong>K=${k}</strong> 검사 중 &nbsp;→&nbsp; dist[<strong>${i}</strong>][<strong>${j}</strong>] = <span class="formula">${fmt(s.old)}</span><br>
+    ${i}→${k}의 거리 <span class="formula">${fmt(s.viaIK)}</span> + ${k}→${j}의 거리 <span class="formula">${fmt(s.viaKJ)}</span> = <span class="formula">${via}</span> &nbsp;<span class="no">→ 변화 없음</span>`;
+  }
+}
+
+function nextStep(){
+  if(stepIdx<steps.length-1){ stepIdx++; applyStep(); }
+}
+
+function reset(){
+  clearInterval(timer);
+  stepIdx=0;
+  steps=buildSteps();
+  renderTable('dist-table',initDist,null);
+  renderTable('init-table',initDist,null);
+  document.getElementById('info').textContent='▶ 아래 버튼을 눌러 단계별로 확인하세요.';
+  document.getElementById('progress').textContent='';
+  document.getElementById('done-banner').classList.remove('show');
+  document.getElementById('btn-next').disabled=false;
+}
+
+function autoPlay(){
+  clearInterval(timer);
+  timer=setInterval(()=>{
+    if(stepIdx<steps.length-1){ stepIdx++; applyStep(); }
+    else clearInterval(timer);
+  }, 500);
+}
+
+reset();
+renderTable('init-table', initDist, null);
+</script>
+</body>
+</html>

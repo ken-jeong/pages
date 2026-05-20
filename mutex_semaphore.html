@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Windows 쓰레드 동기화 — 시각화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F7F5;
+    --surface: #FFFFFF;
+    --surface2: #EFEFEC;
+    --border: #DEDED9;
+    --border-em: #C8C8C1;
+    --text: #1C1C1A;
+    --muted: #666661;
+    --faint: #9C9C95;
+    --accent-r: #B94A48;
+    --accent-r-bg: #FFF5F4;
+    --accent-r-border: #E3C4C1;
+    --accent-g: #2E7D5B;
+    --accent-g-bg: #F1FAF5;
+    --accent-g-border: #BFD8CB;
+    --accent-b: #376CA8;
+    --accent-b-bg: #F2F6FC;
+    --accent-b-border: #BDCEE4;
+    --accent-o: #9A6A28;
+    --accent-o-bg: #FAF6EF;
+    --accent-o-border: #DFCFB7;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Noto Sans KR', sans-serif;
+    --radius: 8px;
+    --radius-lg: 8px;
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 48px 24px;
+  }
+
+  .page { max-width: 720px; margin: 0 auto; }
+
+  header { margin-bottom: 40px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--text);
+  }
+  h1 span { color: var(--muted); font-weight: 400; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; margin-bottom: 20px; background: var(--surface2); border-radius: var(--radius); padding: 4px; border: 0.5px solid var(--border); flex-wrap: wrap; }
+  .tab {
+    flex: 1;
+    min-width: 130px;
+    padding: 9px 12px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--muted);
+    transition: all .15s;
+    letter-spacing: 0.02em;
+  }
+  .tab.active { background: var(--surface); color: var(--text); box-shadow: none; }
+
+  /* Panel */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .scene {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+  }
+
+  .scene-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  .scene-desc { font-size: 13px; color: var(--muted); max-width: 60%; }
+  .counter {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text);
+    background: var(--surface2);
+    padding: 4px 10px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border-em);
+  }
+
+  /* Resources */
+  .resources { display: flex; gap: 16px; justify-content: center; margin-bottom: 24px; flex-wrap: wrap; }
+  .resource {
+    width: 100px;
+    height: 110px;
+    border-radius: var(--radius);
+    border: 0.5px solid var(--border-em);
+    background: var(--surface2);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    position: relative;
+    transition: all .25s;
+  }
+  .resource i { font-size: 30px; color: var(--faint); transition: color .25s; }
+  .resource-label { font-family: var(--mono); font-size: 11px; color: var(--faint); transition: color .25s; }
+  .resource-state { font-family: var(--mono); font-size: 9px; letter-spacing: 0.05em; color: var(--faint); transition: color .25s; }
+
+  .resource.occupied-r { background: var(--accent-r-bg); border-color: var(--accent-r-border); }
+  .resource.occupied-r i, .resource.occupied-r .resource-label { color: var(--accent-r); }
+  .resource.occupied-r .resource-label { font-weight: 500; }
+
+  .resource.occupied-g { background: var(--accent-g-bg); border-color: var(--accent-g-border); }
+  .resource.occupied-g i, .resource.occupied-g .resource-label { color: var(--accent-g); }
+  .resource.occupied-g .resource-label { font-weight: 500; }
+
+  .resource.signaled-b { background: var(--accent-b-bg); border-color: var(--accent-b-border); }
+  .resource.signaled-b i, .resource.signaled-b .resource-label, .resource.signaled-b .resource-state { color: var(--accent-b); }
+  .resource.signaled-b .resource-label { font-weight: 500; }
+
+  .resource.event-box { width: 150px; }
+
+  /* Person badges */
+  .person-badge {
+    position: absolute;
+    top: -12px;
+    right: -12px;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    color: white;
+    border: 2px solid var(--surface);
+  }
+  .badge-count {
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--accent-r);
+    color: white;
+    font-family: var(--mono);
+    font-size: 9px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    border: 2px solid var(--surface);
+  }
+
+  /* Queue */
+  .queue-section { margin-bottom: 20px; }
+  .queue-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--faint); margin-bottom: 10px; }
+  .queue { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-height: 36px; }
+  .queue-empty { font-size: 12px; color: var(--faint); font-family: var(--mono); }
+
+  .person-pill {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 500;
+    color: white;
+    opacity: 0.55;
+  }
+  .person-pill.done { opacity: 1; }
+
+  /* Mode toggle */
+  .mode-toggle { display: flex; gap: 2px; margin-bottom: 20px; background: var(--surface2); border-radius: var(--radius); padding: 4px; border: 0.5px solid var(--border); }
+  .mode-toggle button {
+    flex: 1;
+    padding: 7px 10px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--muted);
+    transition: all .12s;
+  }
+  .mode-toggle button.active { background: var(--surface); color: var(--accent-b); box-shadow: none; }
+
+  /* Controls */
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; }
+  .btn {
+    padding: 8px 16px;
+    background: var(--surface);
+    border: 0.5px solid var(--border-em);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    transition: all .12s;
+    letter-spacing: 0.02em;
+  }
+  .btn:hover { background: var(--surface2); border-color: rgba(0,0,0,0.25); }
+  .btn:active { transform: scale(0.97); }
+  .btn.danger { border-color: var(--accent-r-border); color: var(--accent-r); }
+  .btn.danger:hover { background: var(--accent-r-bg); }
+
+  /* Status */
+  .status {
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 40px;
+    border: 0.5px solid var(--border);
+    line-height: 1.5;
+  }
+  .status.ok { color: var(--accent-g); background: var(--accent-g-bg); border-color: var(--accent-g-border); }
+  .status.warn { color: var(--accent-r); background: var(--accent-r-bg); border-color: var(--accent-r-border); }
+  .status.info { color: var(--accent-b); background: var(--accent-b-bg); border-color: var(--accent-b-border); }
+
+  /* Compare table */
+  .compare { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 32px; }
+  .compare-card {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+  }
+  .compare-card h3 {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    margin-bottom: 4px;
+    font-weight: 500;
+  }
+  .compare-card .sub { font-size: 11px; color: var(--faint); margin-bottom: 12px; }
+  .compare-card.cs h3 { color: var(--accent-r); }
+  .compare-card.mtx h3 { color: var(--accent-o); }
+  .compare-card.sem h3 { color: var(--accent-g); }
+  .compare-card.evt h3 { color: var(--accent-b); }
+  .compare-card ul { list-style: none; }
+  .compare-card li {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 5px 0;
+    border-bottom: 0.5px solid var(--border);
+    line-height: 1.5;
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+  .compare-card li:last-child { border-bottom: none; }
+  .compare-card li::before { content: '—'; color: var(--faint); flex-shrink: 0; font-family: var(--mono); font-size: 10px; }
+
+  footer {
+    margin-top: 48px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+  }
+
+  @media (max-width: 560px) {
+    .compare { grid-template-columns: 1fr; }
+    .scene-desc { max-width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <div class="eyebrow">Windows / 동시성 제어</div>
+    <h1>Windows 쓰레드 동기화<br><span>CRITICAL_SECTION · Mutex · Semaphore · Event</span></h1>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-panel="cs" onclick="switchTab('cs')">CRITICAL_SECTION</button>
+    <button class="tab" data-panel="mtx" onclick="switchTab('mtx')">Mutex</button>
+    <button class="tab" data-panel="sem" onclick="switchTab('sem')">Semaphore</button>
+    <button class="tab" data-panel="evt" onclick="switchTab('evt')">Event</button>
+  </div>
+
+  <!-- CRITICAL_SECTION PANEL -->
+  <div class="panel active" id="panel-cs">
+    <div class="scene">
+      <div class="scene-header">
+        <div class="scene-desc">유저 모드의 빠른 락 — 같은 프로세스 내 스레드만, 한 번에 1개. 소유 스레드는 재진입(recursive) 가능</div>
+        <div class="counter" id="cs-counter">state: free</div>
+      </div>
+      <div class="resources">
+        <div class="resource" id="cs-resource">
+          <i class="ti ti-shield-lock"></i>
+          <div class="resource-label">critical section</div>
+        </div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">대기 스레드 / blocked threads</div>
+        <div class="queue" id="cs-queue">
+          <span class="queue-empty">(비어 있음)</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="csEnter()">EnterCriticalSection()</button>
+        <button class="btn" onclick="csReenter()">소유 스레드 재진입</button>
+        <button class="btn" onclick="csLeave()">LeaveCriticalSection()</button>
+        <button class="btn danger" onclick="resetCs()">초기화</button>
+      </div>
+      <div class="status" id="cs-status">EnterCriticalSection()을 눌러 락을 획득해보세요</div>
+    </div>
+  </div>
+
+  <!-- MUTEX PANEL -->
+  <div class="panel" id="panel-mtx">
+    <div class="scene">
+      <div class="scene-header">
+        <div class="scene-desc">커널 객체 — 이름을 붙이면 프로세스 간 공유 가능. 소유 스레드는 재진입 가능하며 같은 횟수만큼 해제해야 함</div>
+        <div class="counter" id="mtx-counter">state: signaled</div>
+      </div>
+      <div class="resources">
+        <div class="resource" id="mtx-resource">
+          <i class="ti ti-lock"></i>
+          <div class="resource-label">kernel mutex</div>
+        </div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">대기 스레드 / waiting threads</div>
+        <div class="queue" id="mtx-queue">
+          <span class="queue-empty">(비어 있음)</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="mtxWait()">WaitForSingleObject()</button>
+        <button class="btn" onclick="mtxRewait()">소유 스레드 재대기</button>
+        <button class="btn" onclick="mtxRelease()">ReleaseMutex()</button>
+        <button class="btn danger" onclick="resetMtx()">초기화</button>
+      </div>
+      <div class="status" id="mtx-status">WaitForSingleObject()를 눌러 뮤텍스를 획득해보세요</div>
+    </div>
+  </div>
+
+  <!-- SEMAPHORE PANEL -->
+  <div class="panel" id="panel-sem">
+    <div class="scene">
+      <div class="scene-header">
+        <div class="scene-desc">카운트 기반 커널 객체 — 최대 3개 동시 접근. 4번째 스레드부터는 대기</div>
+        <div class="counter" id="sem-counter">count: 3 / 3</div>
+      </div>
+      <div class="resources" id="sem-resources">
+        <div class="resource" data-slot="0"><i class="ti ti-box"></i><div class="resource-label">slot 1</div></div>
+        <div class="resource" data-slot="1"><i class="ti ti-box"></i><div class="resource-label">slot 2</div></div>
+        <div class="resource" data-slot="2"><i class="ti ti-box"></i><div class="resource-label">slot 3</div></div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">대기 스레드 / waiting threads</div>
+        <div class="queue" id="sem-queue">
+          <span class="queue-empty">(비어 있음)</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="semWait()">WaitForSingleObject()</button>
+        <button class="btn" onclick="semRelease()">ReleaseSemaphore()</button>
+        <button class="btn danger" onclick="resetSem()">초기화</button>
+      </div>
+      <div class="status" id="sem-status">WaitForSingleObject()를 눌러 카운트를 점유해보세요</div>
+    </div>
+  </div>
+
+  <!-- EVENT PANEL -->
+  <div class="panel" id="panel-evt">
+    <div class="scene">
+      <div class="scene-header">
+        <div class="scene-desc">신호 상태로 스레드를 깨우는 커널 객체 — 보호가 아닌 통보용</div>
+        <div class="counter" id="evt-counter">state: non-signaled</div>
+      </div>
+      <div class="mode-toggle">
+        <button id="evt-mode-manual" class="active" onclick="setEvtMode('manual')">Manual-Reset (수동)</button>
+        <button id="evt-mode-auto" onclick="setEvtMode('auto')">Auto-Reset (자동)</button>
+      </div>
+      <div class="resources">
+        <div class="resource event-box" id="evt-resource">
+          <i class="ti ti-flag"></i>
+          <div class="resource-label">event object</div>
+          <div class="resource-state" id="evt-state-label">non-signaled</div>
+        </div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">대기 스레드 / waiting threads</div>
+        <div class="queue" id="evt-queue">
+          <span class="queue-empty">(비어 있음)</span>
+        </div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">깨어난 스레드 / released</div>
+        <div class="queue" id="evt-released">
+          <span class="queue-empty">(없음)</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="evtWait()">WaitForSingleObject()</button>
+        <button class="btn" onclick="evtSet()">SetEvent()</button>
+        <button class="btn" onclick="evtReset()">ResetEvent()</button>
+        <button class="btn danger" onclick="evtPulse()">PulseEvent() 위험</button>
+        <button class="btn danger" onclick="resetEvt()">초기화</button>
+      </div>
+      <div class="status" id="evt-status">스레드를 대기시키고 SetEvent()로 깨워보세요</div>
+    </div>
+  </div>
+
+  <!-- COMPARE -->
+  <div class="compare">
+    <div class="compare-card cs">
+      <h3>CRITICAL_SECTION</h3>
+      <div class="sub">유저 모드 객체</div>
+      <ul>
+        <li>같은 프로세스 내 스레드 전용</li>
+        <li>경쟁 없으면 커널 진입 X → 가장 빠름</li>
+        <li>소유 스레드는 재진입 가능 (recursive)</li>
+        <li>WaitForSingleObject 사용 불가</li>
+      </ul>
+    </div>
+    <div class="compare-card mtx">
+      <h3>MUTEX</h3>
+      <div class="sub">커널 객체</div>
+      <ul>
+        <li>이름 부여 시 프로세스 간 공유 가능</li>
+        <li>소유권 존재 → 소유 스레드만 해제, 재진입 가능</li>
+        <li>소유 스레드 종료 시 abandoned 상태</li>
+        <li>커널 전환 비용으로 상대적으로 느림</li>
+      </ul>
+    </div>
+    <div class="compare-card sem">
+      <h3>SEMAPHORE</h3>
+      <div class="sub">커널 객체</div>
+      <ul>
+        <li>0~최대값 카운트로 N개 동시 접근 허용</li>
+        <li>소유권 없음 → 어느 스레드든 Release</li>
+        <li>자원 풀 제한에 적합</li>
+        <li>최대값 1이면 binary semaphore</li>
+      </ul>
+    </div>
+    <div class="compare-card evt">
+      <h3>EVENT</h3>
+      <div class="sub">커널 객체</div>
+      <ul>
+        <li>상호 배제가 아닌 스레드 간 신호 전달</li>
+        <li>Manual-Reset: 모든 대기 스레드를 깨움</li>
+        <li>Auto-Reset: 한 스레드만 깨우고 자동 리셋</li>
+        <li>SetEvent / ResetEvent로 제어, PulseEvent는 사용 지양</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>windows thread synchronization · interactive visualization</footer>
+</div>
+
+<script>
+  const COLORS = ['#378ADD','#7F77DD','#D85A30','#1D9E75','#BA7517','#C94040','#3E9E9E'];
+  function colorFor(id) { return COLORS[(id - 1) % COLORS.length]; }
+
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  }
+
+  function setStatus(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  function renderQueue(elId, ids, prefix, doneSet) {
+    const q = document.getElementById(elId);
+    q.innerHTML = '';
+    if (ids.length === 0) {
+      q.innerHTML = '<span class="queue-empty">(비어 있음)</span>';
+      return;
+    }
+    ids.forEach(id => {
+      const p = document.createElement('div');
+      p.className = 'person-pill' + (doneSet && doneSet.has(id) ? ' done' : '');
+      p.style.background = colorFor(id);
+      p.textContent = prefix + id;
+      q.appendChild(p);
+    });
+  }
+
+  function makeBadge(id, prefix) {
+    const badge = document.createElement('div');
+    badge.className = 'person-badge';
+    badge.style.background = colorFor(id);
+    badge.textContent = prefix + id;
+    return badge;
+  }
+
+  // ── CRITICAL_SECTION ──
+  let cs = { holder: null, depth: 0, queue: [], next: 1 };
+
+  function renderCs() {
+    const res = document.getElementById('cs-resource');
+    res.querySelectorAll('.person-badge, .badge-count').forEach(e => e.remove());
+    if (cs.holder) {
+      res.classList.add('occupied-r');
+      res.appendChild(makeBadge(cs.holder, 'T'));
+      if (cs.depth > 1) {
+        const c = document.createElement('div');
+        c.className = 'badge-count';
+        c.textContent = 'depth ' + cs.depth;
+        res.appendChild(c);
+      }
+    } else {
+      res.classList.remove('occupied-r');
+    }
+    document.getElementById('cs-counter').textContent =
+      cs.holder ? 'owner: T' + cs.holder + ' (depth ' + cs.depth + ')' : 'state: free';
+    renderQueue('cs-queue', cs.queue, 'T');
+  }
+
+  function csEnter() {
+    const id = cs.next++;
+    if (!cs.holder) {
+      cs.holder = id; cs.depth = 1;
+      setStatus('cs-status', 'T' + id + ' 가 크리티컬 섹션 진입 — 경쟁 없어 커널 진입 없이 빠르게 획득', 'ok');
+    } else {
+      cs.queue.push(id);
+      setStatus('cs-status', 'T' + id + ' 블록됨 — T' + cs.holder + ' 가 점유 중', 'warn');
+    }
+    renderCs();
+  }
+
+  function csReenter() {
+    if (!cs.holder) { setStatus('cs-status', '아직 아무도 진입하지 않았습니다', ''); return; }
+    cs.depth++;
+    setStatus('cs-status', '소유 스레드 T' + cs.holder + ' 재진입 — depth ' + cs.depth + ' (재귀 락)', 'ok');
+    renderCs();
+  }
+
+  function csLeave() {
+    if (!cs.holder) { setStatus('cs-status', '아무도 점유하지 않았습니다', ''); return; }
+    const prev = cs.holder;
+    if (cs.depth > 1) {
+      cs.depth--;
+      setStatus('cs-status', 'T' + prev + ' 1회 해제 — depth ' + cs.depth + ', 아직 보유 중', 'ok');
+    } else if (cs.queue.length > 0) {
+      cs.holder = cs.queue.shift(); cs.depth = 1;
+      setStatus('cs-status', 'T' + prev + ' 해제 → T' + cs.holder + ' 가 진입', 'ok');
+    } else {
+      cs.holder = null; cs.depth = 0;
+      setStatus('cs-status', 'T' + prev + ' 해제 — 크리티컬 섹션 비어 있음', 'ok');
+    }
+    renderCs();
+  }
+
+  function resetCs() {
+    cs = { holder: null, depth: 0, queue: [], next: 1 };
+    setStatus('cs-status', 'EnterCriticalSection()을 눌러 락을 획득해보세요', '');
+    renderCs();
+  }
+
+  // ── MUTEX ──
+  let mtx = { holder: null, depth: 0, queue: [], next: 1 };
+
+  function renderMtx() {
+    const res = document.getElementById('mtx-resource');
+    res.querySelectorAll('.person-badge, .badge-count').forEach(e => e.remove());
+    if (mtx.holder) {
+      res.classList.add('occupied-r');
+      res.appendChild(makeBadge(mtx.holder, 'T'));
+      if (mtx.depth > 1) {
+        const c = document.createElement('div');
+        c.className = 'badge-count';
+        c.textContent = 'depth ' + mtx.depth;
+        res.appendChild(c);
+      }
+    } else {
+      res.classList.remove('occupied-r');
+    }
+    document.getElementById('mtx-counter').textContent =
+      mtx.holder ? 'owner: T' + mtx.holder + ' (depth ' + mtx.depth + ', non-signaled)' : 'state: signaled';
+    renderQueue('mtx-queue', mtx.queue, 'T');
+  }
+
+  function mtxWait() {
+    const id = mtx.next++;
+    if (!mtx.holder) {
+      mtx.holder = id; mtx.depth = 1;
+      setStatus('mtx-status', 'T' + id + ' 가 뮤텍스 획득 — 객체가 non-signaled 로 전환', 'ok');
+    } else {
+      mtx.queue.push(id);
+      setStatus('mtx-status', 'T' + id + ' 대기 — 뮤텍스 소유권이 T' + mtx.holder + ' 에게 있음', 'warn');
+    }
+    renderMtx();
+  }
+
+  function mtxRewait() {
+    if (!mtx.holder) { setStatus('mtx-status', '아직 뮤텍스를 소유한 스레드가 없습니다', ''); return; }
+    mtx.depth++;
+    setStatus('mtx-status', '소유 스레드 T' + mtx.holder + ' 가 다시 Wait 성공 — recursion depth ' + mtx.depth, 'ok');
+    renderMtx();
+  }
+
+  function mtxRelease() {
+    if (!mtx.holder) { setStatus('mtx-status', '소유 중인 스레드가 없습니다', ''); return; }
+    const prev = mtx.holder;
+    if (mtx.depth > 1) {
+      mtx.depth--;
+      setStatus('mtx-status', 'T' + prev + ' 가 ReleaseMutex() 1회 호출 — depth ' + mtx.depth + ', 아직 non-signaled', 'ok');
+    } else if (mtx.queue.length > 0) {
+      mtx.holder = mtx.queue.shift(); mtx.depth = 1;
+      setStatus('mtx-status', 'T' + prev + ' 가 마지막 ReleaseMutex() → T' + mtx.holder + ' 가 소유권 획득', 'ok');
+    } else {
+      mtx.holder = null; mtx.depth = 0;
+      setStatus('mtx-status', 'T' + prev + ' 가 마지막 ReleaseMutex() — 뮤텍스 signaled 상태', 'ok');
+    }
+    renderMtx();
+  }
+
+  function resetMtx() {
+    mtx = { holder: null, depth: 0, queue: [], next: 1 };
+    setStatus('mtx-status', 'WaitForSingleObject()를 눌러 뮤텍스를 획득해보세요', '');
+    renderMtx();
+  }
+
+  // ── SEMAPHORE ──
+  let sm = { slots: [null, null, null], queue: [], next: 1 };
+
+  function renderSem() {
+    document.querySelectorAll('#sem-resources .resource').forEach((r, i) => {
+      r.querySelectorAll('.person-badge').forEach(e => e.remove());
+      r.classList.remove('occupied-g');
+      if (sm.slots[i] !== null) {
+        r.classList.add('occupied-g');
+        r.appendChild(makeBadge(sm.slots[i], 'T'));
+      }
+    });
+    const avail = sm.slots.filter(s => s === null).length;
+    document.getElementById('sem-counter').textContent = 'count: ' + avail + ' / 3';
+    renderQueue('sem-queue', sm.queue, 'T');
+  }
+
+  function semWait() {
+    const id = sm.next++;
+    const fi = sm.slots.findIndex(s => s === null);
+    if (fi !== -1) {
+      sm.slots[fi] = id;
+      setStatus('sem-status', 'T' + id + ' → slot ' + (fi + 1) + ' 점유, 카운트 1 감소', 'ok');
+    } else {
+      sm.queue.push(id);
+      setStatus('sem-status', 'T' + id + ' 대기 — 카운트가 0, 세마포어 non-signaled', 'warn');
+    }
+    renderSem();
+  }
+
+  function semRelease() {
+    const oi = sm.slots.findIndex(s => s !== null);
+    if (oi === -1) { setStatus('sem-status', '점유 중인 카운트가 없습니다', ''); return; }
+    const previous = sm.slots[oi];
+    if (sm.queue.length > 0) {
+      const next = sm.queue.shift();
+      sm.slots[oi] = next;
+      setStatus('sem-status', 'ReleaseSemaphore() — 소유권 검사 없이 count 1 증가, 대기 중인 T' + next + ' 가 slot ' + (oi + 1) + ' 획득', 'ok');
+    } else {
+      sm.slots[oi] = null;
+      setStatus('sem-status', 'ReleaseSemaphore() — 소유권 없이 slot ' + (oi + 1) + ' 의 T' + previous + ' 표시를 비우고 카운트 1 증가', 'ok');
+    }
+    renderSem();
+  }
+
+  function resetSem() {
+    sm = { slots: [null, null, null], queue: [], next: 1 };
+    setStatus('sem-status', 'WaitForSingleObject()를 눌러 카운트를 점유해보세요', '');
+    renderSem();
+  }
+
+  // ── EVENT ──
+  let ev = { mode: 'manual', signaled: false, queue: [], released: [], next: 1 };
+
+  function setEvtMode(mode) {
+    ev = { mode, signaled: false, queue: [], released: [], next: 1 };
+    ev.mode = mode;
+    document.getElementById('evt-mode-manual').classList.toggle('active', mode === 'manual');
+    document.getElementById('evt-mode-auto').classList.toggle('active', mode === 'auto');
+    setStatus('evt-status', mode === 'manual'
+      ? '새 Manual-Reset Event 생성 — SetEvent()는 모든 대기 스레드를 깨우고 신호 상태 유지'
+      : '새 Auto-Reset Event 생성 — SetEvent()는 한 스레드만 깨우고 필요 시 자동 리셋', 'info');
+    renderEvt();
+  }
+
+  function renderEvt() {
+    const res = document.getElementById('evt-resource');
+    res.classList.toggle('signaled-b', ev.signaled);
+    res.querySelector('i').className = ev.signaled ? 'ti ti-flag-filled' : 'ti ti-flag';
+    document.getElementById('evt-state-label').textContent = ev.signaled ? 'signaled' : 'non-signaled';
+    document.getElementById('evt-counter').textContent = 'state: ' + (ev.signaled ? 'signaled' : 'non-signaled');
+    renderQueue('evt-queue', ev.queue, 'T');
+    const rel = document.getElementById('evt-released');
+    rel.innerHTML = '';
+    if (ev.released.length === 0) {
+      rel.innerHTML = '<span class="queue-empty">(없음)</span>';
+    } else {
+      ev.released.forEach(id => {
+        const p = document.createElement('div');
+        p.className = 'person-pill done';
+        p.style.background = colorFor(id);
+        p.textContent = 'T' + id;
+        rel.appendChild(p);
+      });
+    }
+  }
+
+  function evtWait() {
+    const id = ev.next++;
+    if (ev.signaled) {
+      if (ev.mode === 'auto') {
+        ev.signaled = false;
+        ev.released.push(id);
+        setStatus('evt-status', 'T' + id + ' — 이미 signaled, 즉시 통과 후 자동 리셋(non-signaled)', 'ok');
+      } else {
+        ev.released.push(id);
+        setStatus('evt-status', 'T' + id + ' — 이미 signaled, 즉시 통과 (신호 유지)', 'ok');
+      }
+    } else {
+      ev.queue.push(id);
+      setStatus('evt-status', 'T' + id + ' 가 WaitForSingleObject()에서 블록됨 — 신호 대기 중', 'warn');
+    }
+    renderEvt();
+  }
+
+  function evtSet() {
+    if (ev.mode === 'manual') {
+      ev.signaled = true;
+      if (ev.queue.length > 0) {
+        const woke = ev.queue.slice();
+        ev.released.push(...woke);
+        ev.queue = [];
+        setStatus('evt-status', 'SetEvent() — 대기 중인 ' + woke.length + '개 스레드를 모두 깨움. 신호 상태 유지', 'ok');
+      } else {
+        setStatus('evt-status', 'SetEvent() — 대기 스레드 없음. 객체가 signaled 로 유지됨', 'info');
+      }
+    } else {
+      if (ev.queue.length > 0) {
+        const woke = ev.queue.shift();
+        ev.released.push(woke);
+        ev.signaled = false;
+        setStatus('evt-status', 'SetEvent() — 대기 중인 T' + woke + ' 하나만 깨우고 즉시 자동 리셋', 'ok');
+      } else {
+        ev.signaled = true;
+        setStatus('evt-status', 'SetEvent() — 대기 스레드 없음. signaled 로 두어 다음 Wait가 통과', 'info');
+      }
+    }
+    renderEvt();
+  }
+
+  function evtReset() {
+    ev.signaled = false;
+    setStatus('evt-status', 'ResetEvent() — 객체를 non-signaled 로 강제 전환', 'info');
+    renderEvt();
+  }
+
+  function evtPulse() {
+    if (ev.queue.length === 0) {
+      ev.signaled = false;
+      setStatus('evt-status', 'PulseEvent()는 신뢰할 수 없어 사용 지양 — 대기 스레드 없음, non-signaled 로 종료', 'warn');
+    } else if (ev.mode === 'manual') {
+      const woke = ev.queue.slice();
+      ev.released.push(...woke);
+      ev.queue = [];
+      ev.signaled = false;
+      setStatus('evt-status', 'PulseEvent()는 사용 지양 — 현재 대기 중인 ' + woke.length + '개만 깨우고 즉시 non-signaled 로 복귀', 'warn');
+    } else {
+      const woke = ev.queue.shift();
+      ev.released.push(woke);
+      ev.signaled = false;
+      setStatus('evt-status', 'PulseEvent()는 사용 지양 — 현재 대기 중인 T' + woke + ' 하나만 깨우고 non-signaled 로 복귀', 'warn');
+    }
+    renderEvt();
+  }
+
+  function resetEvt() {
+    ev = { mode: ev.mode, signaled: false, queue: [], released: [], next: 1 };
+    setStatus('evt-status', '스레드를 대기시키고 SetEvent()로 깨워보세요', '');
+    renderEvt();
+  }
+
+  renderCs();
+  renderMtx();
+  renderSem();
+  renderEvt();
+</script>
+</body>
+</html>

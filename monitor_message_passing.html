@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monitor &amp; Message Passing — 시각화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #F7F7F5;
+    --surface: #FFFFFF;
+    --surface2: #EFEFEC;
+    --border: #DEDED9;
+    --border-em: #C8C8C1;
+    --text: #1C1C1A;
+    --muted: #666661;
+    --faint: #9C9C95;
+    --accent-r: #B94A48;
+    --accent-r-bg: #FFF5F4;
+    --accent-r-border: #E3C4C1;
+    --accent-g: #2E7D5B;
+    --accent-g-bg: #F1FAF5;
+    --accent-g-border: #BFD8CB;
+    --accent-p: #5F5AA2;
+    --accent-p-bg: #F4F3FB;
+    --accent-p-border: #C9C6E6;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'Noto Sans KR', sans-serif;
+    --radius: 8px;
+    --radius-lg: 8px;
+  }
+
+  body {
+    font-family: var(--sans);
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 48px 24px;
+  }
+
+  .page { max-width: 720px; margin: 0 auto; }
+
+  header { margin-bottom: 40px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--faint);
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-size: 26px;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--text);
+  }
+  h1 span { color: var(--muted); font-weight: 400; }
+
+  /* Tabs */
+  .tabs {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 20px;
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 4px;
+    border: 0.5px solid var(--border);
+  }
+  .tab {
+    flex: 1;
+    padding: 9px 14px;
+    background: transparent;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--muted);
+    transition: all .15s;
+    letter-spacing: 0.02em;
+  }
+  .tab.active {
+    background: var(--surface);
+    color: var(--text);
+    box-shadow: none;
+  }
+
+  /* Panels */
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  .scene {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+  }
+
+  .scene-hint {
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 16px;
+    line-height: 1.6;
+  }
+  .scene-hint code {
+    font-family: var(--mono);
+    font-size: 11px;
+    background: var(--surface2);
+    padding: 1px 5px;
+    border-radius: 4px;
+    color: var(--text);
+  }
+
+  svg { display: block; }
+
+  /* Controls */
+  .controls {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
+    margin: 16px 0 12px;
+  }
+  .btn {
+    padding: 8px 16px;
+    background: var(--surface);
+    border: 0.5px solid var(--border-em);
+    border-radius: var(--radius);
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text);
+    transition: all .12s;
+    letter-spacing: 0.02em;
+  }
+  .btn:hover { background: var(--surface2); border-color: rgba(0,0,0,0.25); }
+  .btn:active { transform: scale(0.97); }
+  .btn.reset { color: var(--muted); }
+  .btn.reset:hover { color: var(--accent-r); border-color: var(--accent-r-border); background: var(--accent-r-bg); }
+
+  /* Status */
+  .status {
+    background: var(--surface2);
+    border-radius: var(--radius);
+    padding: 10px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    min-height: 40px;
+    border: 0.5px solid var(--border);
+    line-height: 1.5;
+    transition: background .2s, color .2s, border-color .2s;
+  }
+  .status.ok {
+    color: var(--accent-g);
+    background: var(--accent-g-bg);
+    border-color: var(--accent-g-border);
+  }
+  .status.warn {
+    color: var(--accent-r);
+    background: var(--accent-r-bg);
+    border-color: var(--accent-r-border);
+  }
+
+  /* Compare cards */
+  .compare {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin-top: 32px;
+  }
+  .ccard {
+    background: var(--surface);
+    border: 0.5px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+  }
+  .ccard h3 {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    margin-bottom: 12px;
+    font-weight: 500;
+  }
+  .ccard.mon h3 { color: var(--accent-p); }
+  .ccard.msg h3 { color: var(--accent-g); }
+  .ccard ul { list-style: none; }
+  .ccard li {
+    font-size: 12px;
+    color: var(--muted);
+    padding: 5px 0;
+    border-bottom: 0.5px solid var(--border);
+    line-height: 1.6;
+    display: flex;
+    gap: 6px;
+    align-items: baseline;
+  }
+  .ccard li:last-child { border-bottom: none; }
+  .ccard li::before {
+    content: '—';
+    color: var(--faint);
+    flex-shrink: 0;
+    font-family: var(--mono);
+    font-size: 10px;
+  }
+  .ccard code {
+    font-family: var(--mono);
+    font-size: 10px;
+    background: var(--surface2);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+
+  footer {
+    margin-top: 48px;
+    text-align: center;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--faint);
+    letter-spacing: 0.05em;
+  }
+
+  @media (max-width: 560px) {
+    .compare { grid-template-columns: 1fr; }
+    .tabs { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <header>
+    <div class="eyebrow">동시성 제어 / Concurrency</div>
+    <h1>Monitor <span>&</span> Message Passing<br><span>인터랙티브 시각화</span></h1>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" data-panel="monitor" onclick="switchTab('monitor')">Monitor — 조건 변수 동기화</button>
+    <button class="tab" data-panel="msg" onclick="switchTab('msg')">Message Passing — 채널 통신</button>
+  </div>
+
+  <!-- ── MONITOR PANEL ── -->
+  <div class="panel active" id="panel-monitor">
+    <div class="scene">
+      <p class="scene-hint">
+        모니터 내부로 들어온 스레드만 실행됩니다.
+        <code>wait()</code>하면 조건 대기열로 이동하고,
+        <code>signal()</code>하면 깨어납니다.
+      </p>
+
+      <svg id="mon-svg" width="100%" viewBox="0 0 640 340" role="img">
+        <title>모니터 시각화</title>
+        <desc>입장 대기열, 실행 영역, 조건 대기열로 구성된 모니터 구조</desc>
+        <defs>
+          <marker id="arr-m" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+        </defs>
+
+        <!-- Monitor dashed border -->
+        <rect x="200" y="30" width="260" height="285" rx="14"
+              fill="none" stroke="#7F77DD" stroke-width="1.5" stroke-dasharray="6 3"/>
+        <text x="330" y="22" text-anchor="middle"
+              font-size="11" fill="#7F77DD" font-family="'IBM Plex Mono', monospace" font-weight="500">Monitor</text>
+
+        <!-- Entry queue section -->
+        <text x="94" y="82" text-anchor="middle"
+              font-size="11" fill="#6B6A64" font-family="'Noto Sans KR', sans-serif">입장 대기열</text>
+        <text x="94" y="96" text-anchor="middle"
+              font-size="10" fill="#A8A7A2" font-family="'IBM Plex Mono', monospace">entry queue</text>
+        <rect x="20" y="106" width="148" height="52" rx="8"
+              fill="#FFFFFF" stroke="rgba(0,0,0,0.14)" stroke-width="0.5"/>
+        <g id="mon-entry-queue"></g>
+
+        <!-- Condition queue section -->
+        <text x="94" y="232" text-anchor="middle"
+              font-size="11" fill="#6B6A64" font-family="'Noto Sans KR', sans-serif">조건 대기열</text>
+        <text x="94" y="246" text-anchor="middle"
+              font-size="10" fill="#A8A7A2" font-family="'IBM Plex Mono', monospace">condition queue</text>
+        <rect x="20" y="256" width="148" height="52" rx="8"
+              fill="#FFFFFF" stroke="rgba(0,0,0,0.14)" stroke-width="0.5"/>
+        <g id="mon-cond-queue"></g>
+
+        <!-- Active thread area -->
+        <rect x="220" y="55" width="220" height="85" rx="8"
+              fill="#EEEDFE" stroke="#AFA9EC" stroke-width="0.5"/>
+        <text x="330" y="82" text-anchor="middle"
+              font-size="12" fill="#3C3489" font-family="'Noto Sans KR', sans-serif" font-weight="500">실행 중인 스레드</text>
+        <text x="330" y="100" text-anchor="middle"
+              font-size="10" fill="#534AB7" font-family="'IBM Plex Mono', monospace">active thread</text>
+        <g id="mon-active"></g>
+
+        <!-- Condition variable area -->
+        <rect x="220" y="215" width="220" height="85" rx="8"
+              fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
+        <text x="330" y="248" text-anchor="middle"
+              font-size="12" fill="#085041" font-family="'Noto Sans KR', sans-serif" font-weight="500">조건 변수 (condition var)</text>
+        <text x="330" y="266" text-anchor="middle"
+              font-size="10" fill="#0F6E56" font-family="'IBM Plex Mono', monospace">wait() 호출 시 이동</text>
+
+        <!-- Arrow: entry queue → active -->
+        <line x1="168" y1="132" x2="218" y2="97"
+              stroke="#7F77DD" stroke-width="1" marker-end="url(#arr-m)" fill="none"/>
+
+        <!-- Arrow: active → condition (wait) -->
+        <path d="M330 140 L330 213" fill="none"
+              stroke="#1D9E75" stroke-width="1" marker-end="url(#arr-m)"/>
+        <text x="338" y="180" font-size="10" fill="#1D9E75"
+              font-family="'IBM Plex Mono', monospace">wait()</text>
+
+        <!-- Arrow: condition → entry queue (signal, dashed) -->
+        <path d="M220 258 L168 258 L168 158 L168 132" fill="none"
+              stroke="#534AB7" stroke-width="1" stroke-dasharray="4 2" marker-end="url(#arr-m)"/>
+        <text x="155" y="205" text-anchor="end" font-size="10" fill="#534AB7"
+              font-family="'IBM Plex Mono', monospace">signal()</text>
+      </svg>
+
+      <div class="controls">
+        <button class="btn" onclick="monEnter()">스레드 입장 (enter)</button>
+        <button class="btn" onclick="monWait()">wait() — 조건 대기</button>
+        <button class="btn" onclick="monSignal()">signal() — 깨우기</button>
+        <button class="btn reset" onclick="resetMon()">초기화</button>
+      </div>
+      <div class="status" id="mon-status">스레드를 입장시켜 보세요</div>
+    </div>
+  </div>
+
+  <!-- ── MESSAGE PASSING PANEL ── -->
+  <div class="panel" id="panel-msg">
+    <div class="scene">
+      <p class="scene-hint">
+        채널(channel)로 메시지를 <code>send</code>하고 <code>receive</code>합니다.
+        공유 메모리 없이 통신 — Go의 goroutine + channel 모델과 같습니다.
+      </p>
+
+      <svg id="msg-svg" width="100%" viewBox="0 0 640 300" role="img">
+        <title>메시지 전달 시각화</title>
+        <desc>Sender와 Receiver가 버퍼 크기 3인 채널을 통해 메시지를 주고받는 구조</desc>
+        <defs>
+          <marker id="arr-g" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M2 1L8 5L2 9" fill="none" stroke="context-stroke" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </marker>
+        </defs>
+
+        <!-- Sender -->
+        <rect x="30" y="95" width="145" height="110" rx="10"
+              fill="#E1F5EE" stroke="#9FE1CB" stroke-width="0.5"/>
+        <text x="102" y="135" text-anchor="middle"
+              font-size="13" fill="#085041" font-family="'Noto Sans KR', sans-serif" font-weight="500">Sender</text>
+        <text x="102" y="155" text-anchor="middle"
+              font-size="11" fill="#0F6E56" font-family="'IBM Plex Mono', monospace">Thread A</text>
+        <text x="102" y="193" text-anchor="middle"
+              font-size="10" fill="#1D9E75" font-family="'IBM Plex Mono', monospace">send(msg)</text>
+
+        <!-- Receiver -->
+        <rect x="465" y="95" width="145" height="110" rx="10"
+              fill="#EEEDFE" stroke="#AFA9EC" stroke-width="0.5"/>
+        <text x="537" y="135" text-anchor="middle"
+              font-size="13" fill="#3C3489" font-family="'Noto Sans KR', sans-serif" font-weight="500">Receiver</text>
+        <text x="537" y="155" text-anchor="middle"
+              font-size="11" fill="#534AB7" font-family="'IBM Plex Mono', monospace">Thread B</text>
+        <text x="537" y="193" text-anchor="middle"
+              font-size="10" fill="#534AB7" font-family="'IBM Plex Mono', monospace">receive()</text>
+
+        <!-- Channel box -->
+        <rect x="196" y="105" width="248" height="90" rx="8"
+              fill="#FFFFFF" stroke="rgba(0,0,0,0.14)" stroke-width="0.5"/>
+        <text x="320" y="130" text-anchor="middle"
+              font-size="12" fill="#1A1A18" font-family="'Noto Sans KR', sans-serif" font-weight="500">Channel</text>
+        <text x="320" y="145" text-anchor="middle"
+              font-size="10" fill="#A8A7A2" font-family="'IBM Plex Mono', monospace">buffer: 3</text>
+
+        <!-- Channel buffer slots -->
+        <rect id="cs0" x="210" y="155" width="58" height="28" rx="5"
+              fill="#F0EFE9" stroke="rgba(0,0,0,0.1)" stroke-width="0.5"/>
+        <rect id="cs1" x="281" y="155" width="58" height="28" rx="5"
+              fill="#F0EFE9" stroke="rgba(0,0,0,0.1)" stroke-width="0.5"/>
+        <rect id="cs2" x="352" y="155" width="58" height="28" rx="5"
+              fill="#F0EFE9" stroke="rgba(0,0,0,0.1)" stroke-width="0.5"/>
+        <text id="ct0" x="239" y="174" text-anchor="middle"
+              font-size="10" fill="#A8A7A2" font-family="'IBM Plex Mono', monospace">—</text>
+        <text id="ct1" x="310" y="174" text-anchor="middle"
+              font-size="10" fill="#A8A7A2" font-family="'IBM Plex Mono', monospace">—</text>
+        <text id="ct2" x="381" y="174" text-anchor="middle"
+              font-size="10" fill="#A8A7A2" font-family="'IBM Plex Mono', monospace">—</text>
+
+        <!-- Arrows -->
+        <line x1="175" y1="150" x2="194" y2="150"
+              stroke="#1D9E75" stroke-width="1" marker-end="url(#arr-g)" fill="none"/>
+        <line x1="446" y1="150" x2="463" y2="150"
+              stroke="#534AB7" stroke-width="1" marker-end="url(#arr-g)" fill="none"/>
+
+        <!-- Blocking labels -->
+        <text id="sender-block" x="102" y="228" text-anchor="middle"
+              font-size="10" fill="#BA7517" font-family="'Noto Sans KR', sans-serif" opacity="0">채널 가득 — 블로킹</text>
+        <text id="receiver-block" x="537" y="228" text-anchor="middle"
+              font-size="10" fill="#BA7517" font-family="'Noto Sans KR', sans-serif" opacity="0">메시지 없음 — 블로킹</text>
+      </svg>
+
+      <div class="controls">
+        <button class="btn" onclick="msgSend()">send() — 메시지 전송</button>
+        <button class="btn" onclick="msgReceive()">receive() — 메시지 수신</button>
+        <button class="btn reset" onclick="resetMsg()">초기화</button>
+      </div>
+      <div class="status" id="msg-status">send()로 채널에 메시지를 넣어보세요</div>
+    </div>
+  </div>
+
+  <!-- Compare -->
+  <div class="compare">
+    <div class="ccard mon">
+      <h3>MONITOR</h3>
+      <ul>
+        <li>공유 자원 + 락 + 조건변수를 하나로 캡슐화</li>
+        <li>한 번에 스레드 1개만 실행</li>
+        <li><code>wait()</code> → 락 해제 후 조건 대기열에서 수면</li>
+        <li><code>signal()</code> → 대기 중인 스레드를 깨움</li>
+        <li>Java <code>synchronized</code>, Python <code>Condition</code></li>
+      </ul>
+    </div>
+    <div class="ccard msg">
+      <h3>MESSAGE PASSING</h3>
+      <ul>
+        <li>공유 메모리 없음 — 채널로만 통신</li>
+        <li>버퍼 가득 → <code>send()</code> 블로킹</li>
+        <li>버퍼 비면 → <code>receive()</code> 블로킹</li>
+        <li>Go channel, Erlang, Rust <code>mpsc</code></li>
+        <li>동기화 문제를 구조적으로 제거</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>monitor &amp; message passing · interactive visualization</footer>
+</div>
+
+<script>
+  /* ── utils ── */
+  function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.panel === name));
+    document.querySelectorAll('.panel').forEach(p => p.classList.toggle('active', p.id === 'panel-' + name));
+  }
+
+  function setStatus(id, msg, type) {
+    const el = document.getElementById(id);
+    el.textContent = msg;
+    el.className = 'status' + (type ? ' ' + type : '');
+  }
+
+  const COLORS = ['#378ADD', '#D85A30', '#1D9E75', '#BA7517', '#7F77DD'];
+  function colorFor(id) { return COLORS[(id - 1) % COLORS.length]; }
+
+  /* ── MONITOR ── */
+  let monState = { active: null, entryQ: [], condQ: [], next: 1 };
+
+  function renderMon() {
+    // Entry queue
+    const eq = document.getElementById('mon-entry-queue');
+    eq.innerHTML = '';
+    monState.entryQ.forEach((id, i) => {
+      const x = 28 + i * 34, y = 132;
+      eq.innerHTML +=
+        `<circle cx="${x}" cy="${y}" r="13" fill="${colorFor(id)}" opacity="0.85"/>` +
+        `<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="10"` +
+        ` fill="white" font-family="'IBM Plex Mono',monospace" font-weight="500">T${id}</text>`;
+    });
+
+    // Active thread
+    const ac = document.getElementById('mon-active');
+    ac.innerHTML = '';
+    if (monState.active !== null) {
+      ac.innerHTML =
+        `<circle cx="330" cy="90" r="16" fill="${colorFor(monState.active)}" opacity="0.9"/>` +
+        `<text x="330" y="94" text-anchor="middle" font-size="11"` +
+        ` fill="white" font-family="'IBM Plex Mono',monospace" font-weight="500">T${monState.active}</text>`;
+    }
+
+    // Condition queue
+    const cq = document.getElementById('mon-cond-queue');
+    cq.innerHTML = '';
+    monState.condQ.forEach((id, i) => {
+      const x = 28 + i * 34, y = 282;
+      cq.innerHTML +=
+        `<circle cx="${x}" cy="${y}" r="13" fill="${colorFor(id)}" opacity="0.6"/>` +
+        `<text x="${x}" y="${y + 4}" text-anchor="middle" font-size="10"` +
+        ` fill="white" font-family="'IBM Plex Mono',monospace" font-weight="500">T${id}</text>`;
+    });
+  }
+
+  function monEnter() {
+    const id = monState.next++;
+    if (monState.active === null) {
+      monState.active = id;
+      setStatus('mon-status', 'T' + id + ' 가 모니터에 진입해 실행 중입니다', 'ok');
+    } else {
+      monState.entryQ.push(id);
+      setStatus('mon-status', 'T' + id + ' 는 입장 대기열에서 대기 중 (T' + monState.active + ' 실행 중)', 'warn');
+    }
+    renderMon();
+  }
+
+  function monWait() {
+    if (monState.active === null) {
+      setStatus('mon-status', '실행 중인 스레드가 없습니다', '');
+      return;
+    }
+    const id = monState.active;
+    monState.condQ.push(id);
+    if (monState.entryQ.length > 0) {
+      monState.active = monState.entryQ.shift();
+      setStatus('mon-status', 'T' + id + ' wait() → 조건 대기열 이동. T' + monState.active + ' 가 진입', 'ok');
+    } else {
+      monState.active = null;
+      setStatus('mon-status', 'T' + id + ' wait() → 조건 대기열에서 대기 중. 모니터 비어 있음', '');
+    }
+    renderMon();
+  }
+
+  function monSignal() {
+    if (monState.condQ.length === 0) {
+      setStatus('mon-status', '조건 대기열이 비어 있습니다', '');
+      return;
+    }
+    const woken = monState.condQ.shift();
+    if (monState.active === null) {
+      monState.active = woken;
+      setStatus('mon-status', 'signal() → T' + woken + ' 깨어나 실행 중', 'ok');
+    } else {
+      monState.entryQ.unshift(woken);
+      setStatus('mon-status', 'signal() → T' + woken + ' 입장 대기열로 이동 (T' + monState.active + ' 실행 중)', 'ok');
+    }
+    renderMon();
+  }
+
+  function resetMon() {
+    monState = { active: null, entryQ: [], condQ: [], next: 1 };
+    setStatus('mon-status', '스레드를 입장시켜 보세요', '');
+    renderMon();
+  }
+
+  /* ── MESSAGE PASSING ── */
+  const MSG_COLORS = ['#1D9E75', '#534AB7', '#D85A30', '#BA7517', '#378ADD'];
+  const SLOT_X = [239, 310, 381];
+  let msgState = { buf: [], cap: 3, next: 1 };
+
+  function renderMsg() {
+    for (let i = 0; i < 3; i++) {
+      const slot = document.getElementById('cs' + i);
+      const txt  = document.getElementById('ct' + i);
+      if (i < msgState.buf.length) {
+        const id = msgState.buf[i];
+        slot.setAttribute('fill', MSG_COLORS[(id - 1) % MSG_COLORS.length]);
+        slot.setAttribute('opacity', '0.85');
+        txt.textContent = 'M' + id;
+        txt.setAttribute('fill', 'white');
+      } else {
+        slot.setAttribute('fill', '#F0EFE9');
+        slot.setAttribute('opacity', '1');
+        txt.textContent = '—';
+        txt.setAttribute('fill', '#A8A7A2');
+      }
+    }
+    const full  = msgState.buf.length >= msgState.cap;
+    const empty = msgState.buf.length === 0;
+    document.getElementById('sender-block').setAttribute('opacity', full  ? '1' : '0');
+    document.getElementById('receiver-block').setAttribute('opacity', empty ? '1' : '0');
+  }
+
+  function msgSend() {
+    if (msgState.buf.length >= msgState.cap) {
+      setStatus('msg-status', '채널이 가득 찼습니다 — send() 블로킹 (버퍼: 3/3)', 'warn');
+      return;
+    }
+    const id = msgState.next++;
+    msgState.buf.push(id);
+    setStatus('msg-status', 'M' + id + ' 전송 완료 — 채널 버퍼 ' + msgState.buf.length + '/3', 'ok');
+    renderMsg();
+  }
+
+  function msgReceive() {
+    if (msgState.buf.length === 0) {
+      setStatus('msg-status', '채널이 비어 있습니다 — receive() 블로킹', 'warn');
+      return;
+    }
+    const id = msgState.buf.shift();
+    setStatus('msg-status', 'M' + id + ' 수신 완료 — 채널 버퍼 ' + msgState.buf.length + '/3', 'ok');
+    renderMsg();
+  }
+
+  function resetMsg() {
+    msgState = { buf: [], cap: 3, next: 1 };
+    setStatus('msg-status', 'send()로 채널에 메시지를 넣어보세요', '');
+    renderMsg();
+  }
+
+  /* init */
+  renderMon();
+  renderMsg();
+</script>
+</body>
+</html>

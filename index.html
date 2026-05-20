@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Algorithm Visualizations</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f7f7f5;
+      color: #1c1c1a;
+      display: grid;
+      place-items: center;
+      padding: 32px 18px;
+    }
+
+    main {
+      width: min(720px, 100%);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(28px, 6vw, 44px);
+      line-height: 1.12;
+      font-weight: 600;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 28px;
+      color: #666661;
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    nav {
+      display: grid;
+      gap: 12px;
+    }
+
+    a {
+      display: block;
+      padding: 18px 20px;
+      border: 1px solid #deded9;
+      border-radius: 8px;
+      background: #fff;
+      color: inherit;
+      text-decoration: none;
+      transition: background 160ms ease, border-color 160ms ease;
+    }
+
+    a:hover,
+    a:focus-visible {
+      background: #fbfbfa;
+      border-color: #b8b8b2;
+      outline: none;
+    }
+
+    strong {
+      display: block;
+      font-size: 17px;
+      margin-bottom: 5px;
+    }
+
+    span {
+      color: #666661;
+      font-size: 14px;
+      line-height: 1.45;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Algorithm Visualizations</h1>
+    <p>HTML 기반 시각화 페이지 모음입니다.</p>
+    <nav aria-label="Visualization pages">
+      <a href="./mutex_semaphore.html">
+        <strong>Windows 쓰레드 동기화</strong>
+        <span>CRITICAL_SECTION · Mutex · Semaphore · Event를 비교하는 시각화</span>
+      </a>
+      <a href="./floyd_warshall.html">
+        <strong>Floyd-Warshall</strong>
+        <span>최단 경로 알고리즘의 갱신 과정을 보여주는 시각화</span>
+      </a>
+      <a href="./monitor_message_passing.html">
+        <strong>Monitor &amp; Message Passing</strong>
+        <span>모니터와 메시지 패싱 동기화 방식을 비교하는 시각화</span>
+      </a>
+      <a href="./prim-and-kruskal.html">
+        <strong>MST: Kruskal &amp; Prim</strong>
+        <span>최소 신장 트리를 만드는 Kruskal과 Prim 알고리즘 시각화</span>
+      </a>
+    </nav>
+  </main>
+</body>
+</html>
