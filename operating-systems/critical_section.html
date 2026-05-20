@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CRITICAL_SECTION — 시각화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="../theme.css">
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="home-link" href="../index.html"><span aria-hidden="true">←</span> 모든 시각화</a>
+    <div class="eyebrow">Windows / 동시성 제어</div>
+    <h1>CRITICAL_SECTION<br><span>프로세스 내부 상호 배제 · 재진입</span></h1>
+  </header>
+
+  <div class="panel active" id="panel-cs">
+    <div class="scene">
+      <div class="scene-header">
+        <div class="scene-desc">유저 모드의 빠른 락 — 같은 프로세스 내 스레드만, 한 번에 1개. 소유 스레드는 재진입(recursive) 가능</div>
+        <div class="counter" id="cs-counter">state: free</div>
+      </div>
+      <div class="resources">
+        <div class="resource" id="cs-resource">
+          <i class="ti ti-shield-lock"></i>
+          <div class="resource-label">critical section</div>
+        </div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">대기 스레드 / blocked threads</div>
+        <div class="queue" id="cs-queue">
+          <span class="queue-empty">(비어 있음)</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="csEnter()">EnterCriticalSection()</button>
+        <button class="btn" onclick="csReenter()">소유 스레드 재진입</button>
+        <button class="btn" onclick="csLeave()">LeaveCriticalSection()</button>
+        <button class="btn danger" onclick="resetCs()">초기화</button>
+      </div>
+      <div class="status" id="cs-status">EnterCriticalSection()을 눌러 락을 획득해보세요</div>
+    </div>
+  </div>
+
+  <div class="compare">
+    <div class="compare-card cs">
+      <h3>CRITICAL_SECTION</h3>
+      <div class="sub">유저 모드 객체</div>
+      <ul>
+        <li>같은 프로세스 내 스레드 전용</li>
+        <li>경쟁 없으면 커널 진입 X → 가장 빠름</li>
+        <li>소유 스레드는 재진입 가능 (recursive)</li>
+        <li>WaitForSingleObject 사용 불가</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>critical_section · interactive visualization</footer>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  const { enter: csEnter, reenter: csReenter, leave: csLeave, reset: resetCs } = createRecursiveLock('cs', {
+    counter: (holder, depth) => holder ? 'owner: T' + holder + ' (depth ' + depth + ')' : 'state: free',
+    enter: id => 'T' + id + ' 가 크리티컬 섹션 진입 — 경쟁 없어 커널 진입 없이 빠르게 획득',
+    queued: (id, holder) => 'T' + id + ' 블록됨 — T' + holder + ' 가 점유 중',
+    noReenter: '아직 아무도 진입하지 않았습니다',
+    reenter: (holder, depth) => '소유 스레드 T' + holder + ' 재진입 — depth ' + depth + ' (재귀 락)',
+    noOwner: '아무도 점유하지 않았습니다',
+    partial: (holder, depth) => 'T' + holder + ' 1회 해제 — depth ' + depth + ', 아직 보유 중',
+    transfer: (prev, holder) => 'T' + prev + ' 해제 → T' + holder + ' 가 진입',
+    free: prev => 'T' + prev + ' 해제 — 크리티컬 섹션 비어 있음',
+    initial: 'EnterCriticalSection()을 눌러 락을 획득해보세요'
+  });
+</script>
+</body>
+</html>

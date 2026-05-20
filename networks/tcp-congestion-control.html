@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>혼잡 제어 · 핵심 학습</title>
+  <link rel="stylesheet" href="../theme.css">
+  <link rel="stylesheet" href="./transport.css">
+</head>
+<body data-protocol="tcp" class="minimal-lesson">
+<main class="page">
+  <header>
+    <a class="home-link" href="../index.html">← 학습 목록</a>
+    <nav class="topic-nav" aria-label="TCP 학습 주제">
+      <a href="./tcp.html">TCP</a>
+      <a href="./tcp-error-control.html">오류 제어</a>
+      <a href="./tcp-flow-control.html">흐름 제어</a>
+      <a href="./tcp-congestion-control.html" aria-current="page">혼잡 제어</a>
+    </nav>
+    <h1>혼잡 제어</h1>
+    <p class="subtitle">네트워크가 혼잡해지면 전송량을 줄이고, 정상일 때 늘립니다.</p>
+    <p class="key-rule">cwnd = 송신자가 조절하는 미확인 데이터의 한도</p>
+  </header>
+  <section class="scene learning-stage" aria-label="단계별 학습">
+    <div class="lesson-toolbar">
+      <div class="scenario-picker"><label for="scenario">학습 예시</label>
+    <select id="scenario">
+      <optgroup label="혼잡 제어 · 네트워크 부하 조절">
+        <option value="congestion">Reno · Slow Start와 빠른 회복</option>
+        <option value="congestion-timeout">Reno · 타임아웃 후 Slow Start</option>
+      </optgroup>
+    </select>
+      </div>
+      <span id="count" aria-live="polite"></span>
+    </div>
+    <div class="controls" aria-label="재생 제어">
+      <button id="reset" type="button">처음</button>
+      <button id="prev" type="button">← 이전</button>
+      <button id="play" type="button" aria-pressed="false">재생</button>
+      <button id="next" type="button" class="primary">다음 →</button>
+    </div>
+    <label for="progress" class="visually-hidden">단계 탐색</label>
+    <input id="progress" type="range" min="0" max="1" step="1" value="0">
+    <div class="current-explanation" aria-live="polite" aria-atomic="true">
+      <h2 id="current-title"></h2>
+      <p id="description"></p>
+    </div>
+  <section id="control-state" class="learning-metrics" aria-labelledby="control-heading" hidden>
+    <h2 id="control-heading">전송 제어 상태</h2>
+    <details class="calculation"><summary>계산과 모형 가정</summary><p class="minor" id="control-note"></p><p id="window-rule"></p></details>
+    <dl class="metrics" aria-live="polite" id="metrics"></dl>
+    <div id="buffer-state" hidden>
+      <label for="buffer-meter">수신 버퍼 사용량 (바이트)</label>
+      <progress id="buffer-meter" max="200" value="0"></progress>
+      <p class="minor" id="buffer-caption"></p>
+    </div>
+    <div id="cwnd-state" hidden>
+      <h3>혼잡 윈도 변화</h3>
+      <svg id="cwnd-chart" role="img" aria-label="단계별 혼잡 윈도 cwnd 변화"></svg>
+      <p class="minor">가로축: 단계 · 세로축: cwnd (MSS). 점을 잇는 선은 상태 변화이며 실제 시간이나 처리량이 아닙니다.</p>
+    </div>
+  </section>
+  </section>
+  <details id="trace-details" class="learning-detail">
+    <summary>전체 패킷 시간선</summary>
+    <section class="detail-content" aria-labelledby="trace-heading">
+      <h2 id="trace-heading" class="visually-hidden">패킷 시간선</h2>
+      <p class="minor">시간 ↓ · 실선: 데이터 / 제어 · 점선: ACK · ×: 손실</p>
+      <svg id="trace" role="img" aria-labelledby="trace-title trace-desc"></svg>
+      <p class="minor">도착 이벤트를 한 단계로 묶은 학습 모형입니다. 간격과 기울기는 실제 지연을 나타내지 않습니다.</p>
+    </section>
+  </details>
+<details class="learning-detail"><summary>패킷과 대기열 보기</summary>
+  <section id="mechanism" class="learning-visual" aria-labelledby="mechanism-heading" hidden>
+    <div class="mechanism-head"><div><h2 id="mechanism-heading"></h2></div><span id="mechanism-phase" class="phase-badge"></span></div>
+    <div id="mechanism-view"></div>
+    <details class="diagram-note"><summary>그림 읽는 법</summary><p class="minor" id="mechanism-note"></p></details>
+  </section>
+</details>
+  <details class="learning-detail">
+    <summary>송수신 상태와 단계 목록</summary>
+    <div class="detail-content">
+      <dl>
+        <div><dt>송신 측 / 클라이언트</dt><dd id="sender"></dd></div>
+        <div><dt>수신 측 / 서버</dt><dd id="receiver"></dd></div>
+        <div><dt>수신 앱에 전달한 데이터</dt><dd id="delivered"></dd></div>
+      </dl>
+      <ol id="steps" aria-label="단계 목록"></ol>
+    </div>
+  </details>
+  <details class="learning-detail">
+    <summary>개념 정리와 참고</summary>
+  <section class="detail-content" aria-labelledby="concept-heading">
+    <h2 id="concept-heading">혼잡 제어에서 기억할 것</h2>
+    <div class="concept"><h3>혼잡 제어 · 네트워크의 여유</h3><p>송신자가 관리하는 cwnd는 네트워크로 내보낼 미확인 데이터의 양을 제한합니다. Slow Start에서는 ACK에 따라 빠르게 늘리고, ssthresh 이후 Congestion Avoidance에서는 대략 RTT당 1 MSS씩 늘립니다. Reno는 중복 ACK 3개와 타임아웃에 서로 다르게 반응합니다.</p></div>
+    <div class="concept"><h3>두 윈도는 함께 적용됩니다</h3><p>학습 모형의 새 데이터 전송 여유는 max(0, min(rwnd, cwnd) − FlightSize)입니다. FlightSize는 전송했지만 아직 누적 ACK로 확인하지 못한 데이터입니다. 재전송·빠른 회복 중의 전송 판단은 별도 규칙이 적용됩니다.</p></div>
+    <p class="minor">TCP Reno 교육 모형입니다. 초기 cwnd 1 MSS, ssthresh 8 MSS, rwnd 20 MSS를 사용합니다. 매 세그먼트에 ACK하며 회복 중 추가 손실·SACK·지연 ACK는 생략합니다. 실제 초기 윈도와 혼잡 제어 알고리즘은 구현에 따라 다릅니다.</p>
+    <p class="minor">참고: <a href="https://www.rfc-editor.org/rfc/rfc9293.html">IETF · RFC 9293 · TCP</a> · <a href="https://www.rfc-editor.org/rfc/rfc5681.html">RFC 5681 · 혼잡 제어</a></p>
+  </section>
+    <p class="minor" id="lesson"></p>
+  </details>
+</main>
+<script src="../svg.js"></script>
+<script src="./tcp-visual.js"></script>
+<script src="./transport.js"></script>
+</body>
+</html>

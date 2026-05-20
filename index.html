@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>알고리즘 · 운영체제 · 시스템 프로그래밍 · 네트워크 시각화</title>
+  <style>
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      place-items: center;
+    }
+
+    h1 {
+      margin: 0 0 10px;
+    }
+
+    p {
+      font-size: 16px;
+      line-height: 1.6;
+    }
+
+    a:hover,
+    a:focus-visible {
+      background: #fbfbfa;
+      border-color: #b8b8b2;
+      outline: none;
+    }
+
+    strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+  </style>
+<link rel="stylesheet" href="./theme.css">
+</head>
+<body class="home">
+  <main>
+    <header>
+    <div class="eyebrow">컴퓨터 과학 · 인터랙티브 학습</div>
+    <h1>알고리즘 · 운영체제 · 시스템 프로그래밍 · 네트워크 시각화</h1>
+    <p>HTML 기반 시각화 페이지 모음입니다.</p>
+    </header>
+    <h2>알고리즘</h2>
+    <nav aria-label="알고리즘 시각화">
+      <a href="./algorithms/floyd_warshall.html">
+        <strong>Floyd-Warshall</strong>
+        <span>최단 경로 알고리즘의 갱신 과정을 보여주는 시각화</span>
+      </a>
+      <a href="./algorithms/prim-and-kruskal.html">
+        <strong>MST: Kruskal &amp; Prim</strong>
+        <span>최소 신장 트리를 만드는 Kruskal과 Prim 알고리즘 시각화</span>
+      </a>
+      <a href="./algorithms/residual_network.html">
+        <strong>Residual Network &amp; Augmenting Path</strong>
+        <span>Ford-Fulkerson 알고리즘의 잔여 네트워크와 증가 경로 시각화</span>
+      </a>
+    </nav>
+    <h2>운영체제</h2>
+    <nav aria-label="운영체제 시각화">
+      <a href="./operating-systems/critical_section.html">
+        <strong>CRITICAL_SECTION</strong>
+        <span>같은 프로세스 내 스레드의 상호 배제와 재진입 시각화</span>
+      </a>
+      <a href="./operating-systems/event.html">
+        <strong>Event</strong>
+        <span>Manual-Reset과 Auto-Reset 이벤트의 스레드 신호 전달 시각화</span>
+      </a>
+      <a href="./operating-systems/monitor_message_passing.html">
+        <strong>Monitor &amp; Message Passing</strong>
+        <span>모니터와 메시지 패싱 동기화 방식을 비교하는 시각화</span>
+      </a>
+      <a href="./operating-systems/producer_consumer_interactive.html">
+        <strong>Producer &amp; Consumer</strong>
+        <span>유한 버퍼와 세마포어 e · s · n의 동작을 단계별로 보는 시뮬레이터</span>
+      </a>
+    </nav>
+    <h2>시스템 프로그래밍</h2>
+    <nav aria-label="시스템 프로그래밍 시각화">
+      <a href="./system-programming/mutex.html">
+        <strong>pthread_mutex</strong>
+        <span>뮤텍스 소유권과 재진입, 대기 스레드의 동작 시각화</span>
+      </a>
+      <a href="./system-programming/cond.html">
+        <strong>pthread_cond</strong>
+        <span>조건 변수의 대기와 신호, 뮤텍스 재획득과 조건 재검사 시각화</span>
+      </a>
+      <a href="./system-programming/rwlock.html">
+        <strong>pthread_rwlock</strong>
+        <span>읽기 잠금의 동시 진입과 쓰기 잠금의 독점 접근 시각화</span>
+      </a>
+      <a href="./system-programming/semaphore.html">
+        <strong>sem</strong>
+        <span>세마포어 카운트와 동시 접근 제한, 대기 큐 시각화</span>
+      </a>
+    </nav>
+    <h2>네트워크</h2>
+    <nav aria-label="네트워크 시각화">
+      <a href="./networks/tcp.html">
+        <strong>TCP · Seq·ACK와 연결 관리</strong>
+        <span>바이트 순서 번호와 누적 ACK, 연결 수립·종료의 단계별 시각화</span>
+      </a>
+      <a href="./networks/tcp-error-control.html">
+        <strong>오류 제어 · 손실·손상·중복 복구</strong>
+        <span>누적 ACK와 타임아웃 재전송, 중복 제거와 빠른 재전송</span>
+      </a>
+      <a href="./networks/tcp-flow-control.html">
+        <strong>흐름 제어 · 수신 버퍼와 rwnd</strong>
+        <span>수신 버퍼의 사용량과 윈도 갱신에 따른 전송 중지·재개</span>
+      </a>
+      <a href="./networks/tcp-congestion-control.html">
+        <strong>혼잡 제어 · Reno와 cwnd</strong>
+        <span>Slow Start와 혼잡 회피, 빠른 회복과 타임아웃 이후의 변화</span>
+      </a>
+      <a href="./networks/udp.html">
+        <strong>UDP · 데이터그램 전송</strong>
+        <span>독립적인 메시지 전송과 손실·순서 뒤바뀜 시각화</span>
+      </a>
+      <a href="./networks/reliable-transfer.html">
+        <strong>RDT · 신뢰적 데이터 전송</strong>
+        <span>오류와 손실에 대응하는 RDT 1.0~3.0의 발전 과정</span>
+      </a>
+      <a href="./networks/arq.html">
+        <strong>ARQ · S&amp;W · GBN · SR</strong>
+        <span>Stop-and-Wait, Go-Back-N, Selective Repeat의 전송·재전송과 수신 버퍼 비교</span>
+      </a>
+    </nav>
+  </main>
+</body>
+</html>

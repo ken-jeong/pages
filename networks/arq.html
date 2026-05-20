@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ARQ — S&amp;W · GBN · SR</title>
+  <style>
+    #arq-study { color:var(--foreground); }
+    #arq-study .family {display:flex;flex-wrap:wrap;align-items:center;}
+    #arq-study .family strong {font-weight:500;}
+    #arq-study .panels {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));}
+    #arq-study .trace {display:block;width:100%;height:450px;overflow:visible;}
+    #arq-study .trace text {fill:var(--foreground);font-size:12px;font-weight:400;}
+    #arq-study .trace .rail {stroke:var(--border);stroke-width:1;}
+    #arq-study .trace .data {stroke:var(--viz-series-1);}
+    #arq-study .trace .ack {stroke:var(--muted-foreground);stroke-dasharray:4 3;}
+    #arq-study .trace .retry {stroke:var(--viz-series-2);stroke-width:2;}
+    #arq-study .trace .loss {stroke:var(--viz-series-3);}
+    #arq-study .trace .arrow {fill:none;stroke-width:1.5;}
+    #arq-study .trace .faint {opacity:.12;}
+    #arq-study .buffer {display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;}
+    #arq-study .packet {display:inline-flex;align-items:center;justify-content:center;min-width:36px;min-height:32px;padding:4px 8px;border-radius:var(--radius-pill);background:var(--color-inset);color:var(--foreground);}
+    #arq-study .packet.done {background:color-mix(in srgb,var(--viz-series-1) 18%,transparent);}
+    #arq-study .packet.held {background:color-mix(in srgb,var(--viz-series-2) 18%,transparent);}
+    #arq-study .key {display:inline-flex;align-items:center;gap:6px;}
+    #arq-study .swatch {width:20px;height:0;border-top:2px solid var(--viz-series-1);}
+    #arq-study .swatch.ack {border-color:var(--muted-foreground);border-top-style:dashed;}
+    #arq-study .swatch.retry {border-color:var(--viz-series-2);}
+    #arq-study .swatch.loss {border-color:var(--viz-series-3);}
+    #arq-study .minor {margin:6px 0;color:var(--muted-foreground);}
+    #arq-study .status {min-height:44px;}
+    @media(max-width:980px) {#arq-study .panels {grid-template-columns:1fr;} #arq-study .trace {height:450px;} }
+  
+    /* Hallmark · pre-emit critique: P4 H4 E4 S4 R5 V3
+     * macrostructure: preserved learning workbench · theme: existing tokens.css · anchor hue: blue */
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; }
+    .page { max-width: 1120px; margin: 0 auto; }
+    #arq-study {
+      --foreground: var(--color-ink);
+      --muted-foreground: var(--color-muted);
+      --viz-series-1: var(--color-brand);
+      --color-retry: #9a6a28;
+      --color-loss: #b94a48;
+      --viz-series-2: var(--color-retry);
+      --viz-series-3: var(--color-loss);
+    }
+    .subtitle { margin: 12px 0 0; color: var(--color-muted); }
+    h3 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+    .scene, .card { padding: 24px; }
+    .control-scene { margin-bottom: 24px; }
+    #arq-study .family { margin: 0 0 20px; gap: 8px 16px; font-size: 14px; color: var(--color-muted); }
+    #arq-study .family strong { color: var(--color-ink); }
+    .viz-controls { display: flex; align-items: end; flex-wrap: wrap; gap: 10px; margin-bottom: 20px; }
+    .viz-controls .form-label { flex: 1 1 240px; }
+    .form-label { display: block; font-size: 13px; font-weight: 500; }
+    .form-select { display: block; width: 100%; min-height: 44px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-control); background: var(--color-inset); color: var(--color-ink); font: inherit; }
+    .btn { cursor: pointer; border: 1px solid var(--color-border-strong); color: var(--color-ink); }
+    .form-range { display: block; width: 100%; min-height: 32px; margin: 10px 0 16px; }
+    .viz-row { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 20px; }
+    .text-small { font-size: 12px; }
+    .tabular-nums { font-variant-numeric: tabular-nums; color: var(--color-brand); }
+    #arq-study .panels { gap: 20px; margin-top: 0; }
+    #arq-study .trace { margin-top: 14px; }
+    #arq-study .status { background: var(--color-inset); padding: 12px; margin-top: 16px; }
+    #arq-study > .minor { margin: 20px 4px 24px; line-height: 1.8; }
+    footer { margin-top: 28px; text-align: center; font: 12px var(--font-mono); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+    @media(max-width:600px) {
+      .scene, .card { padding: 18px; }
+      .form-select { font-size: 16px; }
+    }
+</style>
+  <link rel="stylesheet" href="../theme.css">
+</head>
+<body>
+<main id="arq-study" class="page">
+  <header>
+    <a class="home-link" href="../index.html"><span aria-hidden="true">←</span> 모든 시각화</a>
+    <div class="eyebrow">컴퓨터 네트워크 · 인터랙티브 학습</div>
+    <h1>ARQ <span>S&amp;W · GBN · SR</span></h1>
+    <p class="subtitle">같은 패킷 손실 상황에서 전송과 재전송, 수신 버퍼의 차이를 비교합니다.</p>
+    <p class="text-small"><a href="./reliable-transfer.html">RDT의 발전 과정 →</a></p>
+  </header>
+  <section class="scene control-scene" aria-label="전송 상황과 진행 단계"><div class="family"><strong>ARQ · ACK와 타임아웃으로 재전송 제어</strong><span>→ S&W · 한 번에 1개</span><span>→ 파이프라이닝 · GBN / SR</span></div>
+  <div class="viz-controls">
+    <label class="form-label">전송 상황<select class="form-select" id="arq-scenario"><option value="loss">P2가 한 번 손실됨</option><option value="normal">손실 없음</option></select></label>
+    <button type="button" class="btn" id="arq-start">처음부터</button>
+    <button type="button" class="btn primary" id="arq-next">다음 장면</button>
+  </div>
+  <label class="form-label" for="arq-time">진행 <span id="arq-phase" class="tabular-nums"></span></label>
+  <input id="arq-time" class="form-range" type="range" min="0" max="5" step="1" value="5">
+  <div class="viz-row text-small" aria-label="범례"><span class="key"><i class="swatch"></i>데이터 →</span><span class="key"><i class="swatch ack"></i>← ACK</span><span class="key"><i class="swatch retry"></i>재전송 →</span><span class="key"><i class="swatch loss"></i>× 손실</span></div>
+  </section>
+  <div class="panels">
+    <section class="card"><h3>S&W</h3><div class="minor text-small">Stop-and-Wait · 송신 윈도 1</div><svg class="trace" id="arq-sw" role="img" aria-label="S&W 전송 시간선"></svg><div class="text-small">순서 밖 패킷 보관: 없음</div><div class="buffer" id="arq-sw-buffer"></div><div class="status text-small" id="arq-sw-status"></div></section>
+    <section class="card"><h3>GBN</h3><div class="minor text-small">Go-Back-N · 송신 윈도 4</div><svg class="trace" id="arq-gbn" role="img" aria-label="GBN 전송 시간선"></svg><div class="text-small">순서 밖 패킷 보관: 없음</div><div class="buffer" id="arq-gbn-buffer"></div><div class="status text-small" id="arq-gbn-status"></div></section>
+    <section class="card"><h3>SR</h3><div class="minor text-small">Selective Repeat · 송신 윈도 4</div><svg class="trace" id="arq-sr" role="img" aria-label="SR 전송 시간선"></svg><div class="text-small">순서 밖 패킷 보관: 가능</div><div class="buffer" id="arq-sr-buffer"></div><div class="status text-small" id="arq-sr-status"></div></section>
+  </div>
+  <div id="arq-live" class="sr-only" aria-live="polite"></div>
+  <div class="minor text-small">시간 ↓ · P1~P4는 데이터 식별용 이름 · GBN의 ACK n은 Pn까지 누적 확인 · SR의 ACK n은 Pn만 확인 · 화살표는 개념적 시간이며 처리량 측정값이 아님</div>
+  <footer>automatic repeat request · interactive visualization</footer>
+</main>
+<script src="../svg.js"></script>
+<script>
+(() => {
+  const root=document.getElementById('arq-study');
+  const q=id=>root.querySelector('#'+id);
+  let state={scenario:'loss',step:5};
+  const stages=['전송 전','첫 전송','수신·ACK 확인','P2 타임아웃','손실 복구','전체 전송 완료'];
+  const names={sw:'S&W',gbn:'GBN',sr:'SR'};
+  function events(kind,loss){
+    const out=[];
+    const add=(type,n,t,stage,extra={})=>out.push({type,n,t,stage,...extra});
+    if(kind==='sw'){
+      add('data',1,0,1);add('ack',1,30,2);
+      add(loss?'loss':'data',2,64,2);
+      if(loss){add('timer',2,184,3);add('retry',2,192,4);add('ack',2,222,4);add('data',3,256,5);add('ack',3,286,5);add('data',4,320,5);add('ack',4,350,5);}
+      else{add('ack',2,94,2);add('data',3,128,4);add('ack',3,158,4);add('data',4,192,5);add('ack',4,222,5);}
+    }else{
+      for(let n=1;n<=4;n++)add(loss&&n===2?'loss':'data',n,(n-1)*16,1);
+      add('ack',1,30,2);
+      if(loss){
+        if(kind==='gbn'){add('ack',1,62,2,{dup:true});add('ack',1,78,2,{dup:true});}
+        else{add('ack',3,62,2);add('ack',4,78,2);}
+        add('timer',2,184,3);add('retry',2,192,4);add('ack',2,222,4);
+        if(kind==='gbn'){add('retry',3,208,4);add('retry',4,224,4);add('ack',3,238,4);add('ack',4,254,5);}
+      }else{for(let n=2;n<=4;n++)add('ack',n,30+(n-1)*16,2);}
+    }
+    return out;
+  }
+  function summary(kind){
+    const s=state.step,loss=state.scenario==='loss';
+    if(s===0)return '전송 대기 · P1~P4';
+    if(!loss){if(s===1)return kind==='sw'?'P1 전송 후 ACK 대기':'P1~P4를 ACK 대기 없이 연속 전송';if(s===2||s===3)return kind==='sw'?'ACK 1 확인 → P2 전송·확인':kind==='gbn'?'누적 ACK 4 → P1~P4 확인 완료':'개별 ACK 1~4 → 모두 확인 완료';if(s===4)return kind==='sw'?'P3 전송·확인':'손실 없음 · 재전송 0개';return '전체 전달 완료 · 데이터 전송 4회';}
+    const text={
+      sw:['','P1 전송 후 ACK 대기','P2 손실 · P3·P4는 아직 미전송','P2의 ACK가 없어 타임아웃','P2만 재전송·확인','이후 P3·P4 전송 · 재전송 1개'],
+      gbn:['','P1~P4 전송 · P2 손실','P3·P4 폐기 · 중복 ACK 1','가장 오래된 미확인 P2 타임아웃','미확인 P2·P3·P4 모두 재전송','전체 전달 완료 · 재전송 3개'],
+      sr:['','P1~P4 전송 · P2 손실','P3·P4 보관 · 각각 ACK','P2의 개별 타이머 만료','P2만 재전송 → P2·P3·P4 순서대로 전달','전체 전달 완료 · 재전송 1개']
+    };return text[kind][s];
+  }
+  function packetStates(kind){
+    const s=state.step,loss=state.scenario==='loss';
+    if(s===0)return ['대기','대기','대기','대기'];
+    if(s===1)return ['이동',kind==='sw'?'대기':loss?'손실':'이동',kind==='sw'?'대기':'이동',kind==='sw'?'대기':'이동'];
+    if(!loss){if(kind!=='sw'||s===5)return ['전달','전달','전달','전달'];return s<4?['전달','전달','대기','대기']:['전달','전달','전달','대기'];}
+    if(s===5||s===4&&kind!=='sw')return ['전달','전달','전달','전달'];
+    if(s===4)return ['전달','전달','대기','대기'];
+    return kind==='sr'?['전달','누락','보관','보관']:kind==='gbn'?['전달','누락','폐기','폐기']:['전달','누락','대기','대기'];
+  }
+  function draw(kind){
+    const svg=q('arq-'+kind),w=Math.max(260,svg.getBoundingClientRect().width),h=450;
+    svg.setAttribute('viewBox',`0 0 ${w} ${h}`);svg.replaceChildren();
+    svg.append(svgElement('title',{},names[kind]+' 패킷 전송과 ACK'),svgElement('desc',{},summary(kind)));
+    const left=35,right=w-35,y=t=>48+t*.94;
+    svg.append(svgElement('line',{x1:left,y1:35,x2:left,y2:427,class:'rail'}),svgElement('line',{x1:right,y1:35,x2:right,y2:427,class:'rail'}));
+    svg.append(svgElement('text',{x:left,y:21,'text-anchor':'middle'},'송신자'),svgElement('text',{x:right,y:21,'text-anchor':'middle'},'수신자'));
+    const defs=svgElement('defs');for(const type of ['data','ack','retry']){
+      const marker=svgElement('marker',{id:`arq-${kind}-${type}`,viewBox:'0 0 8 8',refX:7,refY:4,markerWidth:5,markerHeight:5,orient:'auto'});
+      marker.append(svgElement('path',{d:'M0 0 L8 4 L0 8 Z',fill:type==='data'?'var(--viz-series-1)':type==='retry'?'var(--viz-series-2)':'var(--muted-foreground)'}));defs.append(marker);
+    }svg.append(defs);
+    for(const e of events(kind,state.scenario==='loss')){
+      const g=svgElement('g',{class:e.stage>state.step?'faint':''});
+      if(e.type==='timer'){
+        g.append(svgElement('line',{x1:left,y1:y(e.t),x2:right,y2:y(e.t),class:'rail'}));
+        g.append(svgElement('text',{x:w/2,y:y(e.t)-7,'text-anchor':'middle'},'P2 타임아웃'));
+      }else{
+        const ack=e.type==='ack',lost=e.type==='loss',x1=ack?right:left,x2=lost?(left+right)/2:ack?left:right,y1=y(e.t),y2=y(e.t+(lost?15:30));
+        g.append(svgElement('line',{x1,y1,x2,y2,class:'arrow '+e.type,...(!lost?{'marker-end':`url(#arq-${kind}-${e.type})`}:{})}));
+        const label=ack?`ACK ${e.n}${e.dup?' ↺':''}`:`P${e.n}${e.type==='retry'?' 재전송':''}`;
+        g.append(svgElement('text',{x:ack?right-6:left+6,y:y1-4,'text-anchor':ack?'end':'start'},label));
+        if(lost){g.append(svgElement('line',{x1:x2-5,y1:y2-5,x2:x2+5,y2:y2+5,class:'arrow loss'}),svgElement('line',{x1:x2+5,y1:y2-5,x2:x2-5,y2:y2+5,class:'arrow loss'}));}
+      }svg.append(g);
+    }
+    const ps=packetStates(kind);const box=q('arq-'+kind+'-buffer');box.replaceChildren();
+    ps.forEach((v,i)=>{const p=document.createElement('span');p.className='packet text-small '+(v==='전달'?'done':v==='보관'?'held':'');p.textContent=`P${i+1} ${v}`;box.append(p);});
+    q('arq-'+kind+'-status').textContent=summary(kind);
+  }
+  function render(){q('arq-scenario').value=state.scenario;q('arq-time').value=state.step;q('arq-phase').textContent=`${state.step}/5 · ${state.scenario==='normal'&&state.step===3?'타임아웃 없음':stages[state.step]}`;q('arq-next').disabled=state.step===5;for(const kind of Object.keys(names))draw(kind);q('arq-live').textContent=Object.keys(names).map(k=>names[k]+': '+summary(k)).join('. ');}
+  function save(){if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{scenario:state.scenario==='loss'?'P2 한 번 손실':'손실 없음',step:state.step},privateContent:state}).catch(()=>{});}
+  function restore(s){const p=s?.privateContent;if(p&&['loss','normal'].includes(p.scenario)&&Number.isInteger(p.step)&&p.step>=0&&p.step<=5)state={scenario:p.scenario,step:p.step};}
+  function commit(){render();save();}
+  restore(window.openai?.widgetState);
+  q('arq-scenario').addEventListener('change',e=>{state.scenario=e.target.value;commit();});
+  q('arq-time').addEventListener('input',e=>{state.step=Number(e.target.value);commit();});
+  q('arq-start').addEventListener('click',()=>{state.step=0;commit();});
+  q('arq-next').addEventListener('click',()=>{state.step=Math.min(5,state.step+1);commit();});
+  window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState){restore(e.detail.globals.widgetState);render();}});
+  new ResizeObserver(()=>{for(const kind of Object.keys(names))draw(kind);}).observe(root);
+  render();
+})();
+</script>
+
+</body>
+</html>

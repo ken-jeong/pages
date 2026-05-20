@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mutex — 시각화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<link rel="stylesheet" href="../operating-systems/shared.css">
+<link rel="stylesheet" href="../theme.css">
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="home-link" href="../index.html"><span aria-hidden="true">←</span> 모든 시각화</a>
+    <div class="eyebrow">POSIX Threads / 동시성 제어</div>
+    <h1>Mutex<br><span>소유권 · 상호 배제 · 재진입</span></h1>
+  </header>
+
+  <div class="panel active" id="panel-mtx">
+    <div class="scene">
+      <div class="scene-header">
+        <div class="scene-desc">pthread_mutex_t — 이 예제는 PTHREAD_MUTEX_RECURSIVE 설정. 소유 스레드는 재진입 가능하며 잠근 횟수만큼 해제해야 함</div>
+        <div class="counter" id="mtx-counter">state: unlocked</div>
+      </div>
+      <div class="resources">
+        <div class="resource" id="mtx-resource">
+          <i class="ti ti-lock"></i>
+          <div class="resource-label">pthread mutex</div>
+        </div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">대기 스레드 / waiting threads</div>
+        <div class="queue" id="mtx-queue">
+          <span class="queue-empty">(비어 있음)</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="mtxWait()">pthread_mutex_lock()</button>
+        <button class="btn" onclick="mtxRewait()">소유 스레드 재잠금</button>
+        <button class="btn" onclick="mtxRelease()">pthread_mutex_unlock()</button>
+        <button class="btn danger" onclick="resetMtx()">초기화</button>
+      </div>
+      <div class="status" id="mtx-status">pthread_mutex_lock()를 눌러 뮤텍스를 획득해보세요</div>
+    </div>
+  </div>
+
+  <div class="compare">
+    <div class="compare-card mtx">
+      <h3>MUTEX</h3>
+      <div class="sub">&lt;pthread.h&gt; · 재귀 뮤텍스</div>
+      <ul>
+        <li>기본 공유 범위는 같은 프로세스의 스레드</li>
+        <li>소유 스레드가 pthread_mutex_unlock()으로 해제</li>
+        <li>PTHREAD_MUTEX_RECURSIVE를 지정해야 재진입 가능</li>
+        <li>PTHREAD_MUTEX_NORMAL은 같은 스레드의 재잠금 시 교착</li>
+        <li>대기 순서는 설명을 위한 FIFO 표시이며 실제 획득 순서는 보장되지 않음</li>
+      </ul>
+      <pre><code>pthread_mutex_t mutex;
+pthread_mutexattr_t attr;
+pthread_mutexattr_init(&amp;attr);
+pthread_mutexattr_settype(&amp;attr, PTHREAD_MUTEX_RECURSIVE);
+pthread_mutex_init(&amp;mutex, &amp;attr);
+pthread_mutexattr_destroy(&amp;attr);
+
+pthread_mutex_lock(&amp;mutex);
+/* 임계 영역: 재잠금한 횟수만큼 unlock 필요 */
+pthread_mutex_unlock(&amp;mutex);
+
+/* 모든 스레드의 사용이 끝난 뒤 */
+pthread_mutex_destroy(&amp;mutex);</code></pre>
+      <p>호출 흐름을 보여주는 예제입니다. 실제 C 코드에서는 반환값을 검사하세요.</p>
+      <p>참고: <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_mutex_lock.html">POSIX pthread_mutex_lock()</a></p>
+    </div>
+  </div>
+
+  <footer>mutex · interactive visualization</footer>
+</div>
+
+<script src="../operating-systems/shared.js"></script>
+<script>
+  const { enter: mtxWait, reenter: mtxRewait, leave: mtxRelease, reset: resetMtx } = createRecursiveLock('mtx', {
+    counter: (holder, depth) => holder ? 'owner: T' + holder + ' (depth ' + depth + ', locked)' : 'state: unlocked',
+    enter: id => 'T' + id + ' 가 pthread_mutex_lock() 성공 — 뮤텍스 locked 상태',
+    queued: (id, holder) => 'T' + id + ' 대기 — 뮤텍스 소유권이 T' + holder + ' 에게 있음',
+    noReenter: '아직 뮤텍스를 소유한 스레드가 없습니다',
+    reenter: (holder, depth) => '소유 스레드 T' + holder + ' 가 pthread_mutex_lock() 재호출 성공 — recursion depth ' + depth,
+    noOwner: '소유 중인 스레드가 없습니다',
+    partial: (holder, depth) => 'T' + holder + ' 가 pthread_mutex_unlock() 1회 호출 — depth ' + depth + ', 아직 locked',
+    transfer: (prev, holder) => 'T' + prev + ' 가 마지막 pthread_mutex_unlock() → T' + holder + ' 가 소유권 획득',
+    free: prev => 'T' + prev + ' 가 마지막 pthread_mutex_unlock() — 뮤텍스 unlocked 상태',
+    initial: 'pthread_mutex_lock()를 눌러 뮤텍스를 획득해보세요'
+  });
+</script>
+</body>
+</html>

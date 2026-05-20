@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Event — 시각화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<link rel="stylesheet" href="shared.css">
+<link rel="stylesheet" href="../theme.css">
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="home-link" href="../index.html"><span aria-hidden="true">←</span> 모든 시각화</a>
+    <div class="eyebrow">Windows / 동시성 제어</div>
+    <h1>Event<br><span>신호 전달 · Manual-Reset · Auto-Reset</span></h1>
+  </header>
+
+  <div class="panel active" id="panel-evt">
+    <div class="scene">
+      <div class="scene-header">
+        <div class="scene-desc">신호 상태로 스레드를 깨우는 커널 객체 — 보호가 아닌 통보용</div>
+        <div class="counter" id="evt-counter">state: non-signaled</div>
+      </div>
+      <div class="mode-toggle">
+        <button id="evt-mode-manual" class="active" onclick="setEvtMode('manual')">Manual-Reset (수동)</button>
+        <button id="evt-mode-auto" onclick="setEvtMode('auto')">Auto-Reset (자동)</button>
+      </div>
+      <div class="resources">
+        <div class="resource event-box" id="evt-resource">
+          <i class="ti ti-flag"></i>
+          <div class="resource-label">event object</div>
+          <div class="resource-state" id="evt-state-label">non-signaled</div>
+        </div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">대기 스레드 / waiting threads</div>
+        <div class="queue" id="evt-queue">
+          <span class="queue-empty">(비어 있음)</span>
+        </div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">깨어난 스레드 / released</div>
+        <div class="queue" id="evt-released">
+          <span class="queue-empty">(없음)</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="evtWait()">WaitForSingleObject()</button>
+        <button class="btn" onclick="evtSet()">SetEvent()</button>
+        <button class="btn" onclick="evtReset()">ResetEvent()</button>
+        <button class="btn danger" onclick="evtPulse()">PulseEvent() 위험</button>
+        <button class="btn danger" onclick="resetEvt()">초기화</button>
+      </div>
+      <div class="status" id="evt-status">스레드를 대기시키고 SetEvent()로 깨워보세요</div>
+    </div>
+  </div>
+
+  <div class="compare">
+    <div class="compare-card evt">
+      <h3>EVENT</h3>
+      <div class="sub">커널 객체</div>
+      <ul>
+        <li>상호 배제가 아닌 스레드 간 신호 전달</li>
+        <li>Manual-Reset: 모든 대기 스레드를 깨움</li>
+        <li>Auto-Reset: 한 스레드만 깨우고 자동 리셋</li>
+        <li>SetEvent / ResetEvent로 제어, PulseEvent는 사용 지양</li>
+      </ul>
+    </div>
+  </div>
+
+  <footer>event · interactive visualization</footer>
+</div>
+
+<script src="shared.js"></script>
+<script>
+  let ev = { mode: 'manual', signaled: false, queue: [], released: [], next: 1 };
+
+  function setEvtMode(mode) {
+    ev = { mode, signaled: false, queue: [], released: [], next: 1 };
+    document.getElementById('evt-mode-manual').classList.toggle('active', mode === 'manual');
+    document.getElementById('evt-mode-auto').classList.toggle('active', mode === 'auto');
+    setStatus('evt-status', mode === 'manual'
+      ? '새 Manual-Reset Event 생성 — SetEvent()는 모든 대기 스레드를 깨우고 신호 상태 유지'
+      : '새 Auto-Reset Event 생성 — SetEvent()는 한 스레드만 깨우고 필요 시 자동 리셋', 'info');
+    renderEvt();
+  }
+
+  function renderEvt() {
+    const res = document.getElementById('evt-resource');
+    const state = ev.signaled ? 'signaled' : 'non-signaled';
+    res.classList.toggle('signaled-b', ev.signaled);
+    res.querySelector('i').className = ev.signaled ? 'ti ti-flag-filled' : 'ti ti-flag';
+    document.getElementById('evt-state-label').textContent = state;
+    document.getElementById('evt-counter').textContent = 'state: ' + state;
+    renderQueue('evt-queue', ev.queue);
+    renderQueue('evt-released', ev.released, true, '(없음)');
+  }
+
+  function evtWait() {
+    const id = ev.next++;
+    if (ev.signaled) {
+      ev.released.push(id);
+      if (ev.mode === 'auto') {
+        ev.signaled = false;
+        setStatus('evt-status', 'T' + id + ' — 이미 signaled, 즉시 통과 후 자동 리셋(non-signaled)', 'ok');
+      } else {
+        setStatus('evt-status', 'T' + id + ' — 이미 signaled, 즉시 통과 (신호 유지)', 'ok');
+      }
+    } else {
+      ev.queue.push(id);
+      setStatus('evt-status', 'T' + id + ' 가 WaitForSingleObject()에서 블록됨 — 신호 대기 중', 'warn');
+    }
+    renderEvt();
+  }
+
+  function releaseWaiters() {
+    const woken = ev.queue.splice(0, ev.mode === 'manual' ? ev.queue.length : 1);
+    ev.released.push(...woken);
+    return woken;
+  }
+
+  function evtSet() {
+    const woken = releaseWaiters();
+    ev.signaled = ev.mode === 'manual' || woken.length === 0;
+    if (ev.mode === 'manual') {
+      if (woken.length > 0) {
+        setStatus('evt-status', 'SetEvent() — 대기 중인 ' + woken.length + '개 스레드를 모두 깨움. 신호 상태 유지', 'ok');
+      } else {
+        setStatus('evt-status', 'SetEvent() — 대기 스레드 없음. 객체가 signaled 로 유지됨', 'info');
+      }
+    } else if (woken.length > 0) {
+      setStatus('evt-status', 'SetEvent() — 대기 중인 T' + woken[0] + ' 하나만 깨우고 즉시 자동 리셋', 'ok');
+    } else {
+      setStatus('evt-status', 'SetEvent() — 대기 스레드 없음. signaled 로 두어 다음 Wait가 통과', 'info');
+    }
+    renderEvt();
+  }
+
+  function evtReset() {
+    ev.signaled = false;
+    setStatus('evt-status', 'ResetEvent() — 객체를 non-signaled 로 강제 전환', 'info');
+    renderEvt();
+  }
+
+  function evtPulse() {
+    ev.signaled = false;
+    const woken = releaseWaiters();
+    if (woken.length === 0) {
+      setStatus('evt-status', 'PulseEvent()는 신뢰할 수 없어 사용 지양 — 대기 스레드 없음, non-signaled 로 종료', 'warn');
+    } else if (ev.mode === 'manual') {
+      setStatus('evt-status', 'PulseEvent()는 사용 지양 — 현재 대기 중인 ' + woken.length + '개만 깨우고 즉시 non-signaled 로 복귀', 'warn');
+    } else {
+      setStatus('evt-status', 'PulseEvent()는 사용 지양 — 현재 대기 중인 T' + woken[0] + ' 하나만 깨우고 non-signaled 로 복귀', 'warn');
+    }
+    renderEvt();
+  }
+
+  function resetEvt() {
+    ev = { mode: ev.mode, signaled: false, queue: [], released: [], next: 1 };
+    setStatus('evt-status', '스레드를 대기시키고 SetEvent()로 깨워보세요', '');
+    renderEvt();
+  }
+
+
+  renderEvt();
+</script>
+</body>
+</html>
