@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pthread_rwlock — 읽기·쓰기 잠금 시각화</title>
+<link rel="stylesheet" href="../operating-systems/shared.css">
+<link rel="stylesheet" href="../theme.css">
+<style>
+.compare { grid-template-columns: minmax(0, 1fr); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="home-link" href="../index.html"><span aria-hidden="true">←</span> 모든 시각화</a>
+    <div class="eyebrow">POSIX Threads / 동시성 제어</div>
+    <h1>pthread_rwlock<br><span>읽기 공유 · 쓰기 독점 · 대기 큐</span></h1>
+  </header>
+  <div class="scene">
+    <div class="scene-header">
+      <div class="scene-desc">읽기 잠금은 여러 스레드가 공유합니다. 쓰기 잠금은 모든 읽기·쓰기 스레드와 배타적입니다.</div>
+      <div class="counter" id="rw-counter"></div>
+    </div>
+    <div class="queue-section">
+      <div class="queue-label">읽는 중 / shared readers</div>
+      <div class="queue" id="rw-readers"></div>
+    </div>
+    <div class="queue-section">
+      <div class="queue-label">쓰는 중 / exclusive writer</div>
+      <div class="queue" id="rw-writer"></div>
+    </div>
+    <div class="queue-section">
+      <div class="queue-label">획득 대기 / R = 읽기 · W = 쓰기</div>
+      <div class="queue" id="rw-queue"></div>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="rwAcquire('R')">pthread_rwlock_rdlock()</button>
+      <button class="btn" onclick="rwAcquire('W')">pthread_rwlock_wrlock()</button>
+      <button class="btn" onclick="rwRelease('R')">읽기 스레드 unlock()</button>
+      <button class="btn" onclick="rwRelease('W')">쓰기 스레드 unlock()</button>
+      <button class="btn danger" onclick="resetRw()">초기화</button>
+    </div>
+    <div class="status" id="rw-status" role="status" aria-live="polite"></div>
+  </div>
+  <div class="compare">
+    <div class="compare-card">
+      <h3>READ-WRITE LOCK</h3>
+      <div class="sub">&lt;pthread.h&gt; · pthread_rwlock_t</div>
+      <ul>
+        <li>체험 순서: rdlock 두 번 → wrlock → rdlock → 읽기 unlock 두 번 → 쓰기 unlock</li>
+        <li>rdlock: 쓰기 소유자가 없고 대기 정책상 허용되면 읽기 잠금을 함께 획득합니다.</li>
+        <li>wrlock: 읽기 소유자와 쓰기 소유자가 모두 없어야 획득합니다.</li>
+        <li>unlock: 잠금을 보유한 스레드가 자신의 잠금을 해제합니다. 이 예제는 가장 먼저 진입한 읽기 스레드부터 해제합니다.</li>
+        <li>설명용 FIFO 정책: 대기 쓰기 스레드 뒤의 신규 읽기는 추월하지 않습니다. 연속된 대기 읽기는 함께 진입합니다.</li>
+        <li>POSIX가 이 FIFO 정책을 보장하지는 않습니다. 실제 읽기·쓰기 우선순위와 기아 가능성은 구현·스케줄링 정책에 따라 달라집니다.</li>
+      </ul>
+      <pre><code>pthread_rwlock_t lock = PTHREAD_RWLOCK_INITIALIZER;
+
+/* 읽기 스레드: 공유 데이터를 변경하지 않음 */
+pthread_rwlock_rdlock(&amp;lock);
+/* 공유 데이터 읽기 */
+pthread_rwlock_unlock(&amp;lock);
+
+/* 쓰기 스레드 */
+pthread_rwlock_wrlock(&amp;lock);
+/* 공유 데이터 변경 */
+pthread_rwlock_unlock(&amp;lock);
+
+/* 모든 스레드의 사용이 끝난 뒤 */
+pthread_rwlock_destroy(&amp;lock);</code></pre>
+      <p>각 잠금 요청은 새 스레드입니다. 재귀 잠금·읽기에서 쓰기로의 승격은 다루지 않습니다. 실제 C 코드에서는 반환값을 검사하세요.</p>
+      <p>참고: <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_rwlock_rdlock.html">POSIX pthread_rwlock_rdlock()</a> · <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_rwlock_wrlock.html">POSIX pthread_rwlock_wrlock()</a></p>
+    </div>
+  </div>
+  <footer>pthread_rwlock · interactive visualization</footer>
+</div>
+<script src="../operating-systems/shared.js"></script>
+<script>
+  let rw;
+
+  function renderRw() {
+    document.getElementById('rw-counter').textContent = 'readers: ' + rw.readers.length + ' / writer: ' + (rw.writer === null ? 'none' : 'T' + rw.writer);
+    renderQueue('rw-readers', rw.readers, true);
+    renderQueue('rw-writer', rw.writer === null ? [] : [rw.writer], true);
+    renderQueue('rw-queue', rw.queue.map(thread => thread.id));
+    document.getElementById('rw-queue').querySelectorAll('.person-pill').forEach((pill, i) => {
+      pill.textContent = 'T' + rw.queue[i].id + ' · ' + rw.queue[i].mode;
+    });
+  }
+
+  function rwAdmit() {
+    if (rw.writer !== null || !rw.queue.length) return;
+    if (rw.queue[0].mode === 'W') {
+      if (!rw.readers.length) rw.writer = rw.queue.shift().id;
+    } else {
+      while (rw.queue.length && rw.queue[0].mode === 'R') rw.readers.push(rw.queue.shift().id);
+    }
+  }
+
+  function rwAcquire(mode) {
+    const id = rw.next++;
+    rw.queue.push({ id, mode });
+    rwAdmit();
+    const admitted = rw.writer === id || rw.readers.includes(id);
+    setStatus('rw-status', 'T' + id + ' · ' + (mode === 'R' ? '읽기' : '쓰기') + (admitted ? ' 잠금 획득.' : ' 잠금 대기. 기존 소유자와 앞선 대기 요청이 끝나야 합니다.'), admitted ? 'ok' : 'warn');
+    renderRw();
+  }
+
+  function rwRelease(mode) {
+    const id = mode === 'R' ? rw.readers.shift() : rw.writer;
+    if (id === undefined || id === null) {
+      setStatus('rw-status', '해제할 ' + (mode === 'R' ? '읽기' : '쓰기') + ' 잠금이 없습니다.', 'warn');
+      return;
+    }
+    if (mode === 'W') rw.writer = null;
+    rwAdmit();
+    setStatus('rw-status', 'T' + id + ' pthread_rwlock_unlock(). 진입 가능한 대기 스레드가 잠금을 획득합니다.', 'ok');
+    renderRw();
+  }
+
+  function resetRw() {
+    rw = { readers: [], writer: null, queue: [], next: 1 };
+    setStatus('rw-status', 'rdlock을 여러 번 눌러 읽기 잠금의 동시 진입을 확인하세요.', '');
+    renderRw();
+  }
+  resetRw();
+</script>
+</body>
+</html>

@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TCP · 연결과 신뢰적 바이트 스트림</title>
+  <link rel="stylesheet" href="../theme.css">
+  <link rel="stylesheet" href="./transport.css">
+</head>
+<body data-protocol="tcp">
+<main class="page">
+  <header>
+    <a class="home-link" href="../index.html">← 모든 시각화</a>
+    <div class="eyebrow">컴퓨터 네트워크 · 전송 계층</div>
+    <h1>TCP <span>연결과 신뢰적 바이트 스트림</span></h1>
+    <p class="subtitle">연결 수립부터 오류 제어·흐름 제어·혼잡 제어까지, 패킷과 송수신 상태의 변화를 확인합니다.</p>
+    <a href="./udp.html">UDP 시각화 →</a>
+  </header>
+  <section class="scene" aria-labelledby="scenario-title">
+    <h2 id="scenario-title">전송 상황을 골라 한 단계씩 확인하세요.</h2>
+    <div class="topic-links" role="group" aria-label="제어 학습 바로가기">
+      <button type="button" data-scenario="loss">오류 제어</button>
+      <button type="button" data-scenario="flow">흐름 제어</button>
+      <button type="button" data-scenario="congestion">혼잡 제어</button>
+    </div>
+    <label for="scenario">시나리오</label>
+    <select id="scenario">
+      <optgroup label="연결 관리">
+        <option value="handshake">연결 수립 · 3-way handshake</option>
+        <option value="close">연결 종료 · FIN과 TIME-WAIT</option>
+      </optgroup>
+      <optgroup label="오류 제어 · 정확하게 전달하기">
+        <option value="loss">데이터 손실 · 타임아웃 재전송</option>
+        <option value="corrupt">체크섬 오류 · 손상 데이터 폐기</option>
+        <option value="ack-loss">ACK 손실 · 중복 데이터 제거</option>
+        <option value="fast">중복 ACK 3개 · 빠른 재전송</option>
+      </optgroup>
+      <optgroup label="흐름 제어 · 수신 버퍼 보호">
+        <option value="flow">rwnd · 버퍼가 차면 멈추고 비우면 재개</option>
+      </optgroup>
+      <optgroup label="혼잡 제어 · 네트워크 부하 조절">
+        <option value="congestion">Reno · Slow Start와 빠른 회복</option>
+        <option value="congestion-timeout">Reno · 타임아웃 후 Slow Start</option>
+      </optgroup>
+    </select>
+    <p class="minor" id="lesson"></p>
+    <div class="controls" aria-label="재생 제어">
+      <button id="reset" type="button">처음으로</button>
+      <button id="prev" type="button">← 이전</button>
+      <button id="play" type="button" aria-pressed="false">자동 재생</button>
+      <button id="next" type="button" class="primary">다음 →</button>
+      <span id="count"></span>
+    </div>
+    <label for="progress">단계 탐색</label>
+    <input id="progress" type="range" min="0" max="1" step="1" value="0">
+  </section>
+  <section id="mechanism" class="scene reading" aria-labelledby="mechanism-heading" hidden>
+    <div class="mechanism-head"><div><div class="eyebrow">동작 시각화</div><h2 id="mechanism-heading"></h2></div><span id="mechanism-phase" class="phase-badge"></span></div>
+    <div id="mechanism-view"></div>
+    <p id="mechanism-caption" class="mechanism-caption" aria-live="polite"></p>
+    <p class="minor" id="mechanism-note"></p>
+  </section>
+  <section id="control-state" class="scene reading" aria-labelledby="control-heading" hidden>
+    <h2 id="control-heading">전송 제어 상태</h2>
+    <p class="minor" id="control-note"></p>
+    <dl class="metrics" aria-live="polite" id="metrics"></dl>
+    <p id="window-rule"></p>
+    <div id="buffer-state" hidden>
+      <label for="buffer-meter">수신 버퍼 사용량 (바이트)</label>
+      <progress id="buffer-meter" max="200" value="0"></progress>
+      <p class="minor" id="buffer-caption"></p>
+    </div>
+    <div id="cwnd-state" hidden>
+      <h3>혼잡 윈도 변화</h3>
+      <svg id="cwnd-chart" role="img" aria-label="단계별 혼잡 윈도 cwnd 변화"></svg>
+      <p class="minor">가로축: 단계 · 세로축: cwnd (MSS). 점을 잇는 선은 상태 변화이며 실제 시간이나 처리량이 아닙니다.</p>
+    </div>
+  </section>
+  <div class="workspace">
+    <section class="scene" aria-labelledby="trace-heading">
+      <h2 id="trace-heading">패킷 시간선</h2>
+      <p class="minor">시간 ↓ · 실선: 데이터 / 제어 · 점선: ACK · ×: 손실</p>
+      <svg id="trace" role="img" aria-labelledby="trace-title trace-desc"></svg>
+      <p class="minor">도착 이벤트를 한 단계로 묶은 학습 모형입니다. 간격과 기울기는 실제 지연을 나타내지 않습니다.</p>
+    </section>
+    <section class="scene" aria-labelledby="current-title">
+      <div class="eyebrow">현재 단계</div>
+      <div aria-live="polite" aria-atomic="true"><h2 id="current-title"></h2><p id="description"></p></div>
+      <dl>
+        <div><dt>송신 측 / 클라이언트</dt><dd id="sender"></dd></div>
+        <div><dt>수신 측 / 서버</dt><dd id="receiver"></dd></div>
+        <div><dt>수신 앱에 전달한 데이터</dt><dd id="delivered"></dd></div>
+      </dl>
+      <ol id="steps" aria-label="단계 목록"></ol>
+    </section>
+  </div>
+  <section class="scene reading" aria-labelledby="concept-heading">
+    <h2 id="concept-heading">TCP에서 기억할 것</h2>
+    <div class="concept"><h3>바이트에 번호를 붙입니다</h3><p>SEQ는 첫 바이트의 번호, ACK는 다음에 기대하는 바이트 번호입니다. SYN과 FIN도 순서 번호를 하나 소비합니다.</p></div><div class="concept"><h3>경계 없는 바이트 스트림</h3><p>앱의 send 호출 경계는 보존되지 않습니다. 메시지 구분은 길이 필드나 구분자 등으로 앱이 정의합니다.</p></div><div class="concept"><h3>오류 제어 · 정확하게</h3><p>체크섬으로 손상을 검출해 폐기하고, 누적 ACK·순서 번호로 빠진 데이터와 중복을 구별합니다. 재전송 타임아웃이나 중복 ACK 3개로 복구를 시작합니다. 중복 ACK는 순서 변경으로도 생길 수 있어 손실의 확정 증거는 아닙니다.</p></div>
+    <div class="concept"><h3>흐름 제어 · 받는 쪽의 속도</h3><p>수신자가 알리는 rwnd는 받을 수 있는 공간입니다. 앱이 읽지 않아 버퍼가 차면 rwnd가 0이 되어 새 데이터 전송을 멈춥니다. 윈도 갱신이 유실될 수 있으므로 실제 TCP에는 zero-window probe가 있습니다.</p></div>
+    <div class="concept"><h3>혼잡 제어 · 네트워크의 여유</h3><p>송신자가 관리하는 cwnd는 네트워크로 내보낼 미확인 데이터의 양을 제한합니다. Slow Start에서는 ACK에 따라 빠르게 늘리고, ssthresh 이후 Congestion Avoidance에서는 대략 RTT당 1 MSS씩 늘립니다. Reno는 중복 ACK 3개와 타임아웃에 서로 다르게 반응합니다.</p></div>
+    <div class="concept"><h3>두 윈도는 함께 적용됩니다</h3><p>학습 모형의 새 데이터 전송 여유는 max(0, min(rwnd, cwnd) − FlightSize)입니다. FlightSize는 전송했지만 아직 누적 ACK로 확인하지 못한 데이터입니다. 재전송·빠른 회복 중의 전송 판단은 별도 규칙이 적용됩니다.</p></div>
+    <p class="minor">초기 순서 번호: 클라이언트 100, 서버 500. 오류·흐름 제어에서 데이터 A~E는 각 100바이트입니다. 제어 시나리오는 연결 수립 이후입니다. 흐름 제어는 버퍼 200바이트, 고정 cwnd 400바이트이며 윈도 갱신은 유실되지 않습니다. 혼잡 제어는 Reno 교육 모형으로 초기 cwnd 1 MSS, ssthresh 8 MSS, rwnd 20 MSS를 사용합니다. 매 세그먼트에 ACK하며 회복 중 추가 손실·SACK·지연 ACK는 생략합니다. 실제 초기 윈도와 혼잡 제어 알고리즘은 구현에 따라 다릅니다. 종료는 클라이언트가 먼저 닫는 한 가지 예시입니다. TCP도 연결 실패나 복구 불가능한 오류가 발생할 수 있습니다.</p>
+    <p class="minor">참고: <a href="https://www.rfc-editor.org/rfc/rfc9293.html">IETF · RFC 9293 · TCP</a> · <a href="https://www.rfc-editor.org/rfc/rfc5681.html">RFC 5681 · 혼잡 제어</a> · <a href="./reliable-transfer.html">RDT</a> · <a href="./arq.html">ARQ</a></p>
+  </section>
+</main>
+<script src="../svg.js"></script>
+<script src="./tcp-visual.js"></script>
+<script src="./transport.js"></script>
+</body>
+</html>

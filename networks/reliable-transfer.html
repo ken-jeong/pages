@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RDT — 신뢰적 데이터 전송</title>
+  <link rel="stylesheet" href="../theme.css">
+  <style>
+    /* Hallmark · pre-emit critique: P4 H5 E4 S5 R4 V4
+     * structure: protocol learning workbench · theme: existing tokens.css */
+    :root { --color-error: #a13232; --color-error-soft: #fff0ee; --color-retry: #825418; }
+    *, *::before, *::after { box-sizing: border-box; }
+    body { margin: 0; }
+    .page { max-width: 1120px; margin: 0 auto; }
+    .subtitle { margin: 12px 0 0; color: var(--color-muted); }
+    h3 { margin: 0; font-size: 18px; letter-spacing: -.02em; }
+    .scene { padding: 24px; }
+    .text-small { font-size: 12px; }
+    h2 { margin: 0; font-size: 20px; letter-spacing: -.025em; }
+    p { margin: 8px 0 0; }
+    button, select { color: var(--color-ink); border: 1px solid var(--color-border-strong); cursor: pointer; }
+    .evolution { margin-bottom: 20px; }
+    .version-row { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 8px; margin-top: 18px; }
+    .version { text-align: left; white-space: normal; padding: 14px; background: var(--color-inset); box-shadow: none; }
+    .version b { display: block; font: 600 18px var(--font-mono); margin-bottom: 8px; }
+    .version span { display: block; font-size: 12px; font-weight: 400; }
+    .version[aria-pressed=true] { background: var(--color-brand-soft); color: var(--color-brand); border-color: var(--color-brand); }
+    .workspace { display: grid; grid-template-columns: minmax(0,1.5fr) minmax(260px,1fr); gap: 20px; margin-top: 20px; align-items: start; }
+    .control-row, .playback, .legend { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+    .control-row { margin-top: 20px; align-items: end; }
+    .scenario-label { flex: 1 1 260px; font-size: 13px; font-weight: 600; }
+    select { display: block; width: 100%; margin-top: 6px; padding: 12px; min-height: 44px; border-radius: var(--radius-control); background: var(--color-inset); font: inherit; }
+    .playback { margin-top: 16px; }
+    .step-count { margin-left: auto; font: 12px var(--font-mono); color: var(--color-muted); }
+    input[type=range] { width: 100%; margin: 16px 0 6px; }
+    .minor { color: var(--color-muted); font-size: 13px; }
+    .principle { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--color-border); }
+    .legend { font-size: 12px; margin-top: 14px; gap: 8px 16px; color: var(--color-muted); }
+    .legend i { display: inline-block; width: 18px; border-top: 2px solid var(--color-brand); vertical-align: middle; margin-right: 5px; }
+    .legend .ack { border-top-style: dashed; }
+    .legend .retry { border-color: var(--color-retry); }
+    .legend .error { border-color: var(--color-error); }
+    .trace { display: block; width: 100%; height: auto; margin-top: 12px; }
+    .trace text { font: 13px var(--font-sans); fill: var(--color-ink); }
+    .trace .rail { stroke: var(--color-border-strong); stroke-dasharray: 4 5; }
+    .trace .data, .trace .ack { stroke: var(--color-brand); fill: var(--color-brand); }
+    .trace .ack line { stroke-dasharray: 6 4; }
+    .trace .retry { stroke: var(--color-retry); fill: var(--color-retry); }
+    .trace .error { stroke: var(--color-error); fill: var(--color-error); }
+    .trace .event-text { stroke: none; fill: inherit; font-size: 12px; }
+    .trace .future { opacity: .25; }
+    .trace .current { fill: var(--color-brand-soft); }
+    .trace .note { fill: var(--color-muted); font-size: 12px; }
+    .explanation { border-left: 3px solid var(--color-brand); padding-left: 16px; margin: 18px 0 24px; }
+    .explanation p { font-size: 14px; }
+    .state-list { margin: 0; }
+    .state-list > div { padding: 12px 0; border-top: 1px solid var(--color-border); }
+    dt { font-size: 12px; color: var(--color-muted); }
+    dd { margin: 4px 0 0; font-size: 14px; }
+    .delivery { display: inline-block; margin-top: 6px; padding: 5px 12px; border-radius: 8px; background: var(--color-brand-soft); color: var(--color-brand); font-weight: 600; }
+    .outcome { padding: 14px; margin-top: 16px; border-radius: var(--radius-control); font-size: 14px; background: var(--color-inset); }
+    .outcome[data-result=blocked], .outcome[data-result=wrong] { background: var(--color-error-soft); color: var(--color-error); }
+    .steps { padding-left: 28px; margin: 24px 0 0; font-size: 13px; }
+    .steps li { padding: 4px 0 4px 6px; color: var(--color-muted); }
+    .steps li[aria-current=step] { color: var(--color-brand); font-weight: 600; }
+    .steps button { border: 0; background: transparent; box-shadow: none; min-height: 32px; padding: 2px 4px; font: inherit; color: inherit; text-align: left; white-space: normal; }
+    .reading { margin-top: 20px; }
+    .concepts { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 20px; margin-top: 16px; }
+    .concepts p { font-size: 13px; color: var(--color-muted); }
+    .concepts b { font-size: 14px; }
+    .source { margin-top: 20px; font-size: 12px; color: var(--color-muted); }
+    a { color: var(--color-brand); }
+    footer { margin-top: 28px; text-align: center; font: 12px var(--font-mono); }
+    @media(max-width:600px) {
+      .scene { padding: 18px; }
+      .version-row { grid-template-columns: repeat(2,minmax(0,1fr)); }
+      .version:last-child { grid-column: 1 / -1; }
+      .version b { font-size: 16px; }
+      .trace text { font-size: 22px; }
+      .trace .event-text, .trace .note { font-size: 19px; }
+      .workspace, .concepts { grid-template-columns: minmax(0,1fr); }
+      .playback { gap: 6px; }
+      .playback button { padding-inline: 10px; }
+      select { font-size: 16px; }
+      .step-count { width: 100%; margin: 6px 0 0; }
+    }
+    @media(min-width:601px) and (max-width:850px) { .workspace { grid-template-columns: minmax(0,1fr); } }
+  </style>
+</head>
+<body>
+<main class="page">
+  <header>
+    <a class="home-link" href="../index.html"><span aria-hidden="true">←</span> 모든 시각화</a>
+    <div class="eyebrow">컴퓨터 네트워크 · 인터랙티브 학습</div>
+    <h1>RDT <span>신뢰적 데이터 전송</span></h1>
+    <p class="subtitle">채널의 비트 오류와 패킷·ACK 손실에 대응하며 발전하는 RDT 1.0~3.0을 살펴봅니다.</p>
+    <p class="text-small"><a href="./arq.html">ARQ · S&amp;W·GBN·SR 비교 시뮬레이션 →</a></p>
+  </header>
+  <section class="scene evolution">
+  <h2>하나의 문제가, 다음 버전을 만듭니다.</h2>
+  <p class="minor">① 버전 선택 → ② 오류 상황 선택 → ③ 한 단계씩 전송 과정을 확인하세요.</p>
+  <div class="version-row" role="group" aria-label="RDT 버전 선택">
+    <button class="version" type="button" data-version="1.0" aria-pressed="false"><b>RDT 1.0</b><span>출발점<br>완벽한 채널</span></button>
+    <button class="version" type="button" data-version="2.0" aria-pressed="false"><b>RDT 2.0</b><span>+ 비트 오류 검출<br>체크섬 · ACK / NAK</span></button>
+    <button class="version" type="button" data-version="2.1" aria-pressed="false"><b>RDT 2.1</b><span>+ 중복 구별<br>순서 번호 0 / 1</span></button>
+    <button class="version" type="button" data-version="2.2" aria-pressed="false"><b>RDT 2.2</b><span>NAK를 ACK로 대체<br>번호가 있는 ACK</span></button>
+    <button class="version" type="button" data-version="3.0" aria-pressed="true"><b>RDT 3.0</b><span>+ 손실 복구<br>타이머 · 재전송</span></button>
+  </div>
+</section>
+  <section class="scene" aria-labelledby="protocol-title">
+    <div class="eyebrow" id="version-label">RDT 3.0</div>
+    <h2 id="protocol-title"></h2>
+    <p id="protocol-desc" class="minor"></p>
+    <div class="control-row">
+      <label class="scenario-label" for="scenario">전송 상황
+        <select id="scenario">
+          <option value="normal">정상 전송 — 오류 없음</option>
+          <option value="data-corrupt">데이터 손상 — 비트 오류가 나면?</option>
+          <option value="ack-corrupt">ACK 손상 — 응답을 읽을 수 없다면?</option>
+          <option value="data-loss">데이터 손실 — 패킷이 사라지면?</option>
+          <option value="ack-loss" selected>ACK 손실 — 받았는데 응답이 사라지면?</option>
+        </select>
+      </label>
+    </div>
+    <p class="minor" id="scenario-note"></p>
+  </section>
+  <div class="workspace">
+    <section class="scene" aria-labelledby="trace-title">
+      <h2 id="trace-title">패킷이 오가는 과정</h2>
+      <p class="minor">시간은 아래로 흐릅니다. 강조된 줄이 현재 단계, 연한 부분은 다음 단계입니다.</p>
+    <div class="playback" aria-label="재생 제어">
+      <button type="button" id="reset">처음으로</button>
+      <button type="button" id="prev">← 이전</button>
+      <button type="button" id="play" aria-pressed="false">자동 재생</button>
+      <button type="button" class="primary" id="next">다음 →</button>
+      <span id="step-count" class="step-count"></span>
+    </div>
+    <label class="minor" for="progress">단계 탐색</label>
+    <input id="progress" type="range" min="0" max="1" value="0" step="1">
+      <div class="legend" aria-label="범례"><span><i></i>데이터 →</span><span><i class="ack"></i>← 응답</span><span><i class="retry"></i>재전송 →</span><span><i class="error"></i>손상 · 손실</span></div>
+      <svg id="trace" class="trace" role="img" aria-labelledby="trace-svg-title trace-svg-desc"></svg>
+      <p class="minor">학습용 시간선입니다. 선의 기울기나 간격은 실제 지연 시간을 나타내지 않습니다.</p>
+    </section>
+    <section class="scene" aria-labelledby="current-title">
+      <div class="eyebrow">지금 무슨 일이 일어났나요?</div>
+      <div class="explanation" aria-live="polite" aria-atomic="true"><h2 id="current-title"></h2><p id="current-desc"></p></div>
+      <dl class="state-list">
+        <div><dt>송신자 · 무엇을 기다리나요?</dt><dd id="sender-state"></dd></div>
+        <div><dt>수신자 · 다음에 무엇을 받나요?</dt><dd id="receiver-state"></dd></div>
+        <div><dt>송신 타이머</dt><dd id="timer-state"></dd></div>
+        <div><dt>수신 애플리케이션에 전달한 데이터</dt><dd><span class="delivery" id="delivery"></span></dd></div>
+      </dl>
+      <div id="outcome" class="outcome"></div>
+      <ol id="steps" class="steps" aria-label="단계 목록"></ol>
+    </section>
+  </div>
+  <section class="scene reading" aria-labelledby="takeaway-title">
+    <h2 id="takeaway-title">이 버전에서 기억할 한 가지</h2>
+    <p id="takeaway" class="principle"></p>
+    <div class="concepts">
+      <div><b>체크섬은 손상을 발견합니다.</b><p>틀린 비트를 직접 고치는 대신, 오류를 알아내고 다시 보내도록 합니다.</p></div>
+      <div><b>순서 번호는 중복을 가릅니다.</b><p>같은 번호를 다시 받으면 응답은 보내되, 앱에는 두 번 전달하지 않습니다.</p></div>
+      <div><b>타이머는 침묵에 대응합니다.</b><p>ACK가 오지 않으면 재전송합니다. 손실과 긴 지연을 완벽하게 구별하는 장치는 아닙니다.</p></div>
+    </div>
+    <p class="source">모형: 데이터 A 한 개, 오류는 선택한 방향에서 한 번만 발생, 순서 번호는 0부터 시작합니다. ACK n은 “n번 데이터를 받았다”는 뜻입니다. 초기 ACK 1은 직전 번호를 나타내는 약속입니다.</p>
+    <p class="source">참고: <a href="https://www2.ic.uff.br/~michael/kr1999/3-transport/3_040-principles_rdt.htm">Kurose &amp; Ross · RDT 원리</a> · <a href="https://www-net.cs.umass.edu/kurose_ross/interactive/rdt30.php">RDT 3.0 상태 전이 연습</a></p>
+  </section>
+  <footer>reliable data transfer · protocol evolution</footer>
+</main>
+<script>
+const protocols = {
+  '1.0': { title: '채널이 완벽하다면, 보내기만 하면 됩니다.', desc: '비트 오류도 손실도 없다고 가정합니다. 확인 응답이나 재전송은 없습니다.', takeaway: 'RDT 1.0의 신뢰성은 프로토콜이 아니라 완벽한 채널이라는 가정에서 나옵니다. 데이터가 손상되면 이를 검출할 체크섬부터 필요합니다.' },
+  '2.0': { title: '오류를 발견하고, 다시 보내 달라고 합니다.', desc: '체크섬으로 손상을 검출합니다. 성공은 ACK, 실패는 NAK로 알립니다.', takeaway: '데이터 손상은 NAK로 복구하지만, ACK / NAK 자체가 손상되면 수신 여부를 알 수 없습니다. 무작정 재전송하면 중복 전달할 수 있어 순서 번호가 필요합니다.' },
+  '2.1': { title: '다시 보낸 데이터도, 한 번만 전달합니다.', desc: '데이터에 0 / 1 순서 번호를 붙입니다. 손상된 ACK / NAK를 받으면 재전송하고, 수신자는 중복을 걸러냅니다.', takeaway: '수신자는 다음에 기대하는 번호를 기억합니다. 이미 받은 번호가 다시 오면 ACK만 보내고 앱에는 전달하지 않습니다. 2.1은 여전히 ACK와 NAK를 모두 사용합니다.' },
+  '2.2': { title: '마지막으로 잘 받은 번호만 알려 줍니다.', desc: 'NAK 대신 직전에 정상 수신한 데이터의 ACK를 반복합니다. 송신자는 기다리는 번호와 ACK 번호를 비교합니다.', takeaway: '0번을 기다리는데 데이터가 손상되면 ACK 1을 보냅니다. 송신자는 ACK 0을 기다리므로, ACK 1을 받으면 0번을 다시 보냅니다. NAK 없이 같은 역할을 합니다.' },
+  '3.0': { title: '응답이 사라져도, 기다림은 끝나야 합니다.', desc: 'RDT 2.2에 송신 타이머를 추가합니다. 데이터나 ACK가 사라져도 타임아웃 뒤 재전송합니다.', takeaway: 'ACK 손실은 데이터 손실이 아닙니다. 타임아웃으로 같은 데이터를 다시 보내도, 순서 번호 덕분에 앱에는 한 번만 전달됩니다. 정상 ACK를 받은 뒤 다음 데이터 번호는 1로 바뀝니다.' }
+};
+
+// Each event stores a snapshot so backward navigation never mutates protocol history.
+function buildTrace(version, scenario) {
+  const numbered = ['2.1', '2.2', '3.0'].includes(version);
+  const timed = version === '3.0';
+  const ack = numbered && version !== '2.1' ? 'ACK 0' : 'ACK';
+  const packet = numbered ? 'DATA 0 · A' : 'DATA · A';
+  const nextReceiver = numbered ? 'DATA 1 대기' : '다음 데이터 대기';
+  const completed = { sender: numbered ? '다음 DATA 1 전송 가능' : '다음 데이터 전송 가능', timer: timed ? '정지 · ACK 0 확인' : '없음', result: 'success' };
+  let state = { sender: '데이터 A 전송 준비', receiver: numbered ? 'DATA 0 대기' : '데이터 대기', timer: timed ? '정지' : '없음', delivered: 0, result: 'pending' };
+  const steps = [];
+  function add(title, desc, patch = {}, visual = null) {
+    state = { ...state, ...patch };
+    steps.push({ title, desc, visual, ...state });
+  }
+  const data = (kind = 'data', label = packet) => ({ direction: 'right', kind, label });
+  const reply = (kind = 'ack', label = ack) => ({ direction: 'left', kind, label });
+  add('전송 전', '송신자는 데이터 A를 준비했습니다. 다음을 눌러 두 끝점의 상태 변화를 확인하세요.');
+  add('데이터 전송', timed ? 'DATA 0을 보내고 타이머를 시작합니다. ACK 0을 받을 때까지 다음 데이터는 보내지 않습니다.' : '데이터 A를 전송합니다. 수신자가 어떻게 반응하는지 확인하세요.', { sender: version === '1.0' ? '다음 데이터 전송 가능' : `${ack} 대기`, timer: timed ? '실행 중 · ACK 0 대기' : '없음' });
+  if (scenario === 'data-loss') {
+    add('데이터 손실', '전송 중 데이터가 사라졌습니다. 수신자는 아무것도 받지 못했으므로 응답도 보내지 않습니다.', {}, data('error', '× DATA 손실'));
+  } else if (scenario === 'data-corrupt') {
+    add('데이터 손상', version === '1.0' ? '체크섬이 없어 손상을 알아내지 못합니다. 잘못된 데이터 A′가 앱에 전달됩니다.' : '체크섬이 맞지 않습니다. 손상된 데이터를 버리고 앱에 전달하지 않습니다.', version === '1.0' ? { delivered: 1, receiver: '손상된 A′ 전달', result: 'wrong' } : {}, data('error', 'DATA · 비트 오류'));
+  } else {
+    add('데이터 수신 · 앱에 전달', version === '1.0' ? '데이터 A를 정상 수신했습니다. 수신자는 앱에 A를 한 번 전달합니다.' : '데이터 A를 정상 수신했습니다. 수신자는 앱에 A를 한 번 전달합니다. 송신자는 아직 이 사실을 모릅니다.', { delivered: 1, receiver: nextReceiver }, data());
+  }
+  if (version === '1.0') {
+    if (scenario === 'data-loss') add('손실을 복구할 방법이 없습니다', '송신자는 손실을 알지 못합니다. RDT 1.0은 완벽한 채널에서만 신뢰적으로 동작합니다.', { result: 'blocked' });
+    else if (scenario !== 'data-corrupt') add('확인 응답 없이 완료', 'RDT 1.0에는 ACK가 없습니다. ACK 오류 상황은 적용되지 않으며 데이터 전송만 표시합니다.', { result: 'success' });
+    return steps;
+  }
+  if (scenario === 'data-corrupt') {
+    const negative = version === '2.0' || version === '2.1' ? 'NAK' : 'ACK 1';
+    add(`${negative} 수신 · 재전송 결정`, negative === 'NAK' ? '수신자가 NAK를 보냈습니다. 송신자는 보관 중인 데이터를 다시 보냅니다.' : '수신자는 직전 번호인 ACK 1을 보냅니다. ACK 0을 기다리던 송신자는 번호 불일치로 DATA 0을 재전송합니다.', {}, reply('ack', negative));
+  } else if (scenario !== 'data-loss') {
+    if (scenario === 'ack-loss') add('ACK 손실', '수신자는 A를 전달하고 ACK를 보냈지만, ACK가 중간에서 사라졌습니다. 데이터 전달과 송신자의 확인 완료는 다른 순간입니다.', {}, reply('error', `× ${ack} 손실`));
+    else if (scenario === 'ack-corrupt') {
+      add('ACK 손상', 'ACK가 손상되어 송신자는 성공인지 실패인지 읽을 수 없습니다.', {}, reply('error', `${ack} · 비트 오류`));
+      if (version === '2.0') {
+        add('모호한 응답 · 판단 불가', '그냥 기다리면 진행할 수 없고, 다시 보내면 이미 전달한 A가 또 전달될 수 있습니다. 이를 안전하게 구별할 순서 번호가 없습니다.', { result: 'blocked', sender: 'ACK / NAK 판단 불가' });
+        return steps;
+      }
+      if (timed) add('손상된 ACK 무시', 'RDT 3.0은 손상된 ACK를 무시하고 타이머를 계속 기다립니다. 손상만으로 즉시 재전송하지 않습니다.');
+    } else {
+      add(`${ack} 수신 · 전송 완료`, '정상 ACK를 받았습니다. 송신자는 이번 데이터의 전송을 완료합니다.', completed, reply());
+      return steps;
+    }
+  }
+  if (!timed && (scenario === 'data-loss' || scenario === 'ack-loss')) {
+    add('끝나지 않는 기다림', '송신자는 응답을 기다리지만 타이머가 없습니다. 손실은 이 버전의 채널 가정 밖이며, 재전송을 시작할 사건이 없어 진행이 멈춥니다.', { result: 'blocked' });
+    return steps;
+  }
+  if (timed && scenario !== 'data-corrupt') add('타임아웃 · 재전송 결정', '제한 시간 안에 정상 ACK 0이 오지 않았습니다. 송신자는 DATA 0을 다시 보내기로 합니다.', { timer: '만료 → 재전송' }, { direction: 'note', kind: 'retry', label: 'TIMEOUT · ACK 0 미도착' });
+  add('같은 데이터 재전송', numbered ? '새 데이터가 아닙니다. 같은 순서 번호 0과 같은 내용 A를 다시 보냅니다.' : '보관해 둔 동일한 데이터 A를 다시 보냅니다.', { timer: timed ? '다시 실행 중' : '없음' }, data('retry'));
+  const duplicate = state.delivered === 1;
+  add(duplicate ? '중복 수신 · 앱 전달 생략' : '정상 수신 · 앱에 전달', duplicate ? '수신자는 1번을 기다리는데 0번이 왔습니다. 이미 받은 A이므로 버리고 ACK는 다시 보냅니다. 앱 전달 횟수는 늘지 않습니다.' : '재전송된 데이터가 정상 도착했습니다. 앱에 A를 한 번 전달하고 ACK를 보냅니다.', { delivered: 1, receiver: nextReceiver });
+  add(`${ack} 수신 · 전송 완료`, '이번에는 정상 ACK가 도착했습니다. 재전송이 있어도 앱에는 A가 정확히 한 번 전달되었습니다.', completed, reply());
+  return steps;
+}
+
+const $ = id => document.getElementById(id);
+let version = '3.0', scenario = 'ack-loss', index = 0, history = [], playback = null;
+function stop() {
+  clearInterval(playback); playback = null;
+  $('play').textContent = '자동 재생'; $('play').setAttribute('aria-pressed', 'false');
+}
+function selectTrace() {
+  stop(); index = 0; history = buildTrace(version, scenario);
+  const protocol = protocols[version];
+  $('version-label').textContent = `RDT ${version}`;
+  $('protocol-title').textContent = protocol.title;
+  $('protocol-desc').textContent = protocol.desc;
+  $('takeaway').textContent = protocol.takeaway;
+  $('scenario-note').textContent = version === '1.0' && scenario.startsWith('ack-') ? '이 버전은 ACK를 사용하지 않습니다. ACK 손상·손실 대신 정상 전송을 보여 줍니다.' : scenario === 'normal' ? '오류 없는 상황에서 기본 동작을 먼저 확인하세요.' : '오류는 한 번만 발생합니다. 미지원 오류도 선택해 버전의 한계를 비교할 수 있습니다.';
+  document.querySelectorAll('[data-version]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.version === version)));
+  $('progress').max = history.length - 1;
+  $('steps').innerHTML = history.map((step, i) => `<li><button type="button" data-step="${i}">${step.title}</button></li>`).join('');
+  render();
+}
+function render() {
+  const step = history[index];
+  $('current-title').textContent = step.title;
+  $('current-desc').textContent = step.desc;
+  $('sender-state').textContent = step.sender;
+  $('receiver-state').textContent = step.receiver;
+  $('timer-state').textContent = step.timer;
+  $('delivery').textContent = step.result === 'wrong' ? 'A′ · 잘못된 데이터 1회' : `A · ${step.delivered}회 전달`;
+  $('outcome').dataset.result = step.result;
+  $('outcome').textContent = { pending: '진행 중 · 송신자와 수신자의 상태를 함께 살펴보세요.', success: '완료 · A가 앱에 정확히 한 번 전달되었습니다.', blocked: '한계 확인 · 이 버전은 선택한 손실 또는 오류를 복구하지 못합니다.', wrong: '오류 검출 실패 · 손상된 데이터가 앱에 전달되었습니다.' }[step.result];
+  $('prev').disabled = index === 0;
+  $('next').disabled = index === history.length - 1;
+  $('reset').disabled = index === 0 && !playback;
+  $('step-count').textContent = `${index + 1} / ${history.length} 단계`;
+  $('progress').value = index;
+  $('progress').setAttribute('aria-valuetext', `${index + 1}단계: ${step.title}`);
+  $('steps').querySelectorAll('li').forEach((li, i) => { if (i === index) li.setAttribute('aria-current', 'step'); else li.removeAttribute('aria-current'); });
+  drawTrace();
+}
+function drawTrace() {
+  const height = 92 + (history.length - 1) * 55;
+  let svg = `<title id="trace-svg-title">RDT ${version} 전송 시간선</title><desc id="trace-svg-desc">${history[index].title}. ${history[index].desc}</desc><text x="80" y="24" text-anchor="middle">송신자</text><text x="360" y="24" text-anchor="middle">수신자</text><text x="220" y="44" text-anchor="middle" class="note">시간 ↓</text><line class="rail" x1="80" y1="48" x2="80" y2="${height - 15}"/><line class="rail" x1="360" y1="48" x2="360" y2="${height - 15}"/>`;
+
+  for (let i = 1; i < history.length; i++) {
+    const step = history[i], y = 65 + (i - 1) * 55, v = step.visual;
+    if (i === index) svg += `<rect class="current" x="8" y="${y - 14}" width="424" height="51" rx="10"/>`;
+    svg += `<g${i > index ? ' class="future"' : ''}><text x="24" y="${y + 14}" class="note">${i + 1}</text>`;
+    if (!v || v.direction === 'note') {
+      svg += `<text x="220" y="${y + 14}" text-anchor="middle" class="note">${v ? v.label : step.title}</text>`;
+    } else {
+      const left = v.direction === 'left', lost = v.label.includes('×');
+      const x1 = left ? 360 : 80, x2 = lost ? 220 : left ? 80 : 360;
+      svg += `<g class="${v.kind}"><line x1="${x1}" y1="${y}" x2="${x2}" y2="${y + 26}" stroke-width="2"/>`;
+      if (lost) svg += `<path d="M212 ${y + 18}l16 16m0 -16l-16 16" fill="none" stroke-width="2"/>`;
+      else svg += `<path d="M${x2 + (left ? 9 : -9)} ${y + 18}L${x2} ${y + 26}L${x2 + (left ? 11 : -11)} ${y + 29}" fill="none" stroke-width="2"/>`;
+      svg += `<text class="event-text" x="220" y="${y - 2}" text-anchor="middle">${v.label}</text></g>`;
+    }
+    svg += '</g>';
+  }
+  $('trace').setAttribute('viewBox', `0 0 440 ${height}`);
+  $('trace').innerHTML = svg;
+}
+function goTo(step) {
+  stop();
+  index = Math.max(0, Math.min(step, history.length - 1));
+  render();
+}
+document.querySelectorAll('[data-version]').forEach(button => button.addEventListener('click', () => { version = button.dataset.version; selectTrace(); }));
+$('scenario').addEventListener('change', event => { scenario = event.target.value; selectTrace(); });
+$('next').addEventListener('click', () => goTo(index + 1));
+$('prev').addEventListener('click', () => goTo(index - 1));
+$('reset').addEventListener('click', () => goTo(0));
+$('progress').addEventListener('input', event => goTo(Number(event.target.value)));
+$('steps').addEventListener('click', event => { const button = event.target.closest('[data-step]'); if (button) goTo(Number(button.dataset.step)); });
+$('play').addEventListener('click', () => {
+  if (playback) { stop(); render(); return; }
+  if (index === history.length - 1) index = 0;
+  $('play').textContent = '일시 정지'; $('play').setAttribute('aria-pressed', 'true');
+  playback = setInterval(() => { index++; if (index === history.length - 1) stop(); render(); }, 1600);
+  render();
+});
+document.addEventListener('visibilitychange', () => { if (document.hidden) { stop(); render(); } });
+selectTrace();
+</script>
+</body>
+</html>

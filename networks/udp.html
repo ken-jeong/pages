@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>UDP · 독립적인 데이터그램 전송</title>
+  <link rel="stylesheet" href="../theme.css">
+  <link rel="stylesheet" href="./transport.css">
+</head>
+<body data-protocol="udp">
+<main class="page">
+  <header>
+    <a class="home-link" href="../index.html">← 모든 시각화</a>
+    <div class="eyebrow">컴퓨터 네트워크 · 전송 계층</div>
+    <h1>UDP <span>독립적인 데이터그램 전송</span></h1>
+    <p class="subtitle">연결 수립 없이 보내는 메시지가 손실되거나 순서가 바뀌면 어떻게 전달되는지 확인합니다.</p>
+    <a href="./tcp.html">TCP 시각화 →</a>
+  </header>
+  <section class="scene" aria-labelledby="scenario-title">
+    <h2 id="scenario-title">전송 상황을 골라 한 단계씩 확인하세요.</h2>
+    <label for="scenario">시나리오</label>
+    <select id="scenario"><option value="normal">정상 전송 · 데이터그램 경계</option><option value="loss">B 손실 · 자동 재전송 없음</option><option value="reorder">순서 뒤바뀜 · A → C → B</option></select>
+    <div class="controls" aria-label="재생 제어">
+      <button id="reset" type="button">처음으로</button>
+      <button id="prev" type="button">← 이전</button>
+      <button id="play" type="button" aria-pressed="false">자동 재생</button>
+      <button id="next" type="button" class="primary">다음 →</button>
+      <span id="count"></span>
+    </div>
+    <label for="progress">단계 탐색</label>
+    <input id="progress" type="range" min="0" max="1" step="1" value="0">
+  </section>
+  <div class="workspace">
+    <section class="scene" aria-labelledby="trace-heading">
+      <h2 id="trace-heading">패킷 시간선</h2>
+      <p class="minor">시간 ↓ · 실선: 데이터 / 제어 · 점선: ACK · ×: 손실</p>
+      <svg id="trace" role="img" aria-labelledby="trace-title trace-desc"></svg>
+      <p class="minor">도착 이벤트를 한 단계로 묶은 학습 모형입니다. 간격과 기울기는 실제 지연을 나타내지 않습니다.</p>
+    </section>
+    <section class="scene" aria-labelledby="current-title">
+      <div class="eyebrow">현재 단계</div>
+      <div aria-live="polite" aria-atomic="true"><h2 id="current-title"></h2><p id="description"></p></div>
+      <dl>
+        <div><dt>송신 측 / 클라이언트</dt><dd id="sender"></dd></div>
+        <div><dt>수신 측 / 서버</dt><dd id="receiver"></dd></div>
+        <div><dt>수신 앱에 전달한 데이터</dt><dd id="delivered"></dd></div>
+      </dl>
+      <ol id="steps" aria-label="단계 목록"></ol>
+    </section>
+  </div>
+  <section class="scene reading" aria-labelledby="concept-heading">
+    <h2 id="concept-heading">UDP에서 기억할 것</h2>
+    <div class="concept"><h3>메시지 경계를 유지합니다</h3><p>각 데이터그램은 별개 메시지입니다. 이 모형은 수신 버퍼가 충분하고 데이터그램이 잘리지 않는다고 가정합니다.</p></div><div class="concept"><h3>전달과 순서를 보장하지 않습니다</h3><p>손실·중복·순서 변경이 생길 수 있습니다. ACK, 재전송, 순서 복원이 필요하면 상위 프로토콜이나 앱이 구현합니다.</p></div><div class="concept"><h3>작은 전송 계층 헤더</h3><p>UDP 헤더는 8바이트이며 출발지·목적지 포트, 길이, 체크섬으로 구성됩니다. 연결 수립이 없다고 항상 더 빠른 것은 아닙니다.</p></div>
+    <p class="minor">A·B·C는 앱이 붙인 메시지 이름이며 UDP 헤더의 순서 번호가 아닙니다. 전송 시도만으로 송신 앱이 상대의 수신 여부를 알 수는 없습니다. 체크섬은 손상 검출에 쓰이며 손실 복구 기능은 아닙니다.</p>
+    <p class="minor">참고: <a href="https://www.rfc-editor.org/rfc/rfc768.html">IETF · RFC 768 · UDP</a> · <a href="./reliable-transfer.html">RDT</a> · <a href="./arq.html">ARQ</a></p>
+  </section>
+</main>
+<script src="../svg.js"></script>
+<script src="./transport.js"></script>
+</body>
+</html>

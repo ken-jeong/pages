@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>pthread_cond — 조건 변수 시각화</title>
+<link rel="stylesheet" href="../operating-systems/shared.css">
+<link rel="stylesheet" href="../theme.css">
+<style>
+.compare { grid-template-columns: minmax(0, 1fr); }
+</style>
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="home-link" href="../index.html"><span aria-hidden="true">←</span> 모든 시각화</a>
+    <div class="eyebrow">POSIX Threads / 동시성 제어</div>
+    <h1>pthread_cond<br><span>조건 대기 · 신호 · 뮤텍스 재획득</span></h1>
+  </header>
+  <div class="scene">
+    <div class="scene-header">
+      <div class="scene-desc">소비자는 items &gt; 0을 기다립니다. 생산자 P는 뮤텍스를 잠그고 항목을 추가합니다. 신호를 보낸 뒤 잠금을 해제해보세요.</div>
+      <div class="counter" id="cond-counter"></div>
+    </div>
+    <div class="queue-section">
+      <div class="queue-label">뮤텍스 소유 스레드</div>
+      <div class="queue" id="cond-owner"></div>
+    </div>
+    <div class="queue-section">
+      <div class="queue-label">조건 변수 대기 / pthread_cond_wait</div>
+      <div class="queue" id="cond-waiters"></div>
+    </div>
+    <div class="queue-section">
+      <div class="queue-label">뮤텍스 획득 대기 / 깨어난 스레드도 여기서 대기</div>
+      <div class="queue" id="cond-mutex"></div>
+    </div>
+    <div class="queue-section">
+      <div class="queue-label">소비 완료</div>
+      <div class="queue" id="cond-done"></div>
+    </div>
+    <div class="controls">
+      <button class="btn" onclick="condEnter()">소비자 추가 · mutex_lock</button>
+      <button class="btn" onclick="condCheck()">조건 검사 · wait / 소비</button>
+      <button class="btn" onclick="condProduce()">생산자 잠금 · items++</button>
+      <button class="btn" onclick="condWake(false)">pthread_cond_signal()</button>
+      <button class="btn" onclick="condWake(true)">pthread_cond_broadcast()</button>
+      <button class="btn" onclick="condUnlock()">소유 스레드 mutex_unlock</button>
+      <button class="btn" onclick="condWake(false, true)">허위 깨움 체험</button>
+      <button class="btn danger" onclick="resetCond()">초기화</button>
+    </div>
+    <div class="status" id="cond-status" role="status" aria-live="polite"></div>
+  </div>
+  <div class="compare">
+    <div class="compare-card">
+      <h3>CONDITION VARIABLE</h3>
+      <div class="sub">&lt;pthread.h&gt; · pthread_cond_t + pthread_mutex_t</div>
+      <ul>
+        <li>체험 순서: 소비자 추가 → 조건 검사(wait) → 생산자 잠금 → signal → mutex_unlock → 조건 재검사(소비)</li>
+        <li>wait는 잠근 뮤텍스를 원자적으로 해제하고 대기합니다. 반환할 때는 같은 뮤텍스를 다시 소유합니다.</li>
+        <li>signal은 대기 스레드를 적어도 하나, broadcast는 모두 깨웁니다. 이 예제의 signal은 하나를 선택합니다.</li>
+        <li>신호는 저장되지 않습니다. 대기자가 없을 때 보낸 신호는 미래의 wait를 통과시키지 않습니다.</li>
+        <li>허위 깨움이나 다른 소비자의 선행 소비에 대비해 while로 조건을 다시 검사합니다. 깨움 자체는 items를 늘리지 않습니다.</li>
+        <li>이 예제는 대기 순서를 FIFO로 표시합니다. 실제 깨움·뮤텍스 획득 순서는 보장되지 않습니다.</li>
+      </ul>
+      <pre><code>pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond = PTHREAD_COND_INITIALIZER;
+int items = 0;  /* 모든 접근은 mutex로 보호 */
+
+/* 소비자 */
+pthread_mutex_lock(&amp;mutex);
+while (items == 0)
+    pthread_cond_wait(&amp;cond, &amp;mutex);
+items--;
+pthread_mutex_unlock(&amp;mutex);
+
+/* 생산자 */
+pthread_mutex_lock(&amp;mutex);
+items++;
+pthread_cond_signal(&amp;cond);
+pthread_mutex_unlock(&amp;mutex);
+
+/* 모든 스레드의 사용이 끝난 뒤 */
+pthread_cond_destroy(&amp;cond);
+pthread_mutex_destroy(&amp;mutex);</code></pre>
+      <p>호출 흐름을 보여주는 예제입니다. 실제 C 코드에서는 반환값을 검사하세요. 생산자는 한 번에 P 하나만 표시하며, 잠금 중 재요청은 상태 안내로 처리합니다.</p>
+      <p>참고: <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_cond_wait.html">POSIX pthread_cond_wait()</a> · <a href="https://pubs.opengroup.org/onlinepubs/9799919799/functions/pthread_cond_broadcast.html">POSIX signal / broadcast</a></p>
+    </div>
+  </div>
+  <footer>pthread_cond · interactive visualization</footer>
+</div>
+<script src="../operating-systems/shared.js"></script>
+<script>
+  let cv;
+
+  function renderCond() {
+    document.getElementById('cond-counter').textContent = 'items: ' + cv.items + ' / mutex: ' + (cv.owner === null ? 'unlocked' : cv.owner === 'P' ? 'P' : 'T' + cv.owner);
+    renderQueue('cond-owner', typeof cv.owner === 'number' ? [cv.owner] : [], true, cv.owner === 'P' ? 'P · 생산자' : '(잠금 없음)');
+    renderQueue('cond-waiters', cv.waiters);
+    renderQueue('cond-mutex', cv.mutex);
+    renderQueue('cond-done', cv.done, true);
+  }
+
+  function condHandoff() {
+    cv.owner = cv.mutex.shift() ?? null;
+  }
+
+  function condEnter() {
+    const id = cv.next++;
+    if (cv.owner === null) cv.owner = id;
+    else cv.mutex.push(id);
+    setStatus('cond-status', 'T' + id + (cv.owner === id ? ' 뮤텍스 획득. 조건 검사를 진행하세요.' : ' 뮤텍스 획득 대기.'), '');
+    renderCond();
+  }
+
+  function condCheck() {
+    if (typeof cv.owner !== 'number') {
+      setStatus('cond-status', '뮤텍스를 소유한 소비자가 필요합니다.', 'warn');
+      return;
+    }
+    const id = cv.owner;
+    if (cv.items === 0) {
+      cv.waiters.push(id);
+      setStatus('cond-status', 'T' + id + ': items == 0 → wait가 뮤텍스를 원자적으로 해제하고 조건 대기.', 'warn');
+    } else {
+      cv.items--;
+      cv.done.push(id);
+      setStatus('cond-status', 'T' + id + ': items > 0 확인 → 항목 소비 → mutex_unlock.', 'ok');
+    }
+    condHandoff();
+    renderCond();
+  }
+
+  function condProduce() {
+    if (cv.owner !== null) {
+      setStatus('cond-status', '뮤텍스가 사용 중입니다. 소유 스레드가 wait 또는 unlock한 뒤 생산자를 실행하세요.', 'warn');
+      return;
+    }
+    cv.owner = 'P';
+    cv.items++;
+    setStatus('cond-status', 'P가 뮤텍스를 잠그고 items 증가. signal / broadcast 후 mutex_unlock을 눌러보세요.', 'ok');
+    renderCond();
+  }
+
+  function condWake(all, spurious = false) {
+    const woken = cv.waiters.splice(0, all ? cv.waiters.length : 1);
+    cv.mutex.push(...woken);
+    if (cv.owner === null) condHandoff();
+    setStatus('cond-status', woken.length
+      ? (spurious ? '허위 깨움' : all ? 'broadcast' : 'signal') + ': ' + woken.map(id => 'T' + id).join(', ') + ' 깨움. 뮤텍스 획득 후 조건을 다시 검사하세요. items는 그대로입니다.'
+      : '조건 대기자가 없습니다. 깨움은 저장되지 않습니다.', '');
+    renderCond();
+  }
+
+  function condUnlock() {
+    if (cv.owner === null) {
+      setStatus('cond-status', '해제할 뮤텍스 소유자가 없습니다.', 'warn');
+      return;
+    }
+    condHandoff();
+    setStatus('cond-status', '소유자가 뮤텍스를 해제했습니다.' + (cv.owner === null ? '' : ' T' + cv.owner + ' 획득 → 조건 검사를 진행하세요.'), 'ok');
+    renderCond();
+  }
+
+  function resetCond() {
+    cv = { owner: null, items: 0, waiters: [], mutex: [], done: [], next: 1 };
+    setStatus('cond-status', '소비자를 추가하고 조건 검사를 눌러 wait를 시작하세요.', '');
+    renderCond();
+  }
+  resetCond();
+</script>
+</body>
+</html>

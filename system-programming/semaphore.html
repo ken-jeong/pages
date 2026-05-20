@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Semaphore — 시각화</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.47.0/tabler-icons.min.css">
+<link rel="stylesheet" href="../operating-systems/shared.css">
+<link rel="stylesheet" href="../theme.css">
+</head>
+<body>
+<div class="page">
+  <header>
+    <a class="home-link" href="../index.html"><span aria-hidden="true">←</span> 모든 시각화</a>
+    <div class="eyebrow">POSIX Threads / 동시성 제어</div>
+    <h1>Semaphore<br><span>카운트 · 동시 접근 제한 · 대기 큐</span></h1>
+  </header>
+
+  <div class="panel active" id="panel-sem">
+    <div class="scene">
+      <div class="scene-header">
+        <div class="scene-desc">POSIX sem_t — sem_init(&amp;sem, 0, 3)으로 시작하는 자원 풀 예제. 3개 사용 중이면 다음 스레드는 대기</div>
+        <div class="counter" id="sem-counter">count: 3 / 3</div>
+      </div>
+      <div class="resources" id="sem-resources">
+        <div class="resource" data-slot="0"><i class="ti ti-box"></i><div class="resource-label">slot 1</div></div>
+        <div class="resource" data-slot="1"><i class="ti ti-box"></i><div class="resource-label">slot 2</div></div>
+        <div class="resource" data-slot="2"><i class="ti ti-box"></i><div class="resource-label">slot 3</div></div>
+      </div>
+      <div class="queue-section">
+        <div class="queue-label">대기 스레드 / waiting threads</div>
+        <div class="queue" id="sem-queue">
+          <span class="queue-empty">(비어 있음)</span>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="btn" onclick="semWait()">sem_wait()</button>
+        <button class="btn" onclick="semRelease()">sem_post() · 자원 반환</button>
+        <button class="btn danger" onclick="resetSem()">초기화</button>
+      </div>
+      <div class="status" id="sem-status">sem_wait()를 눌러 카운트를 점유해보세요</div>
+    </div>
+  </div>
+
+  <div class="compare">
+    <div class="compare-card sem">
+      <h3>SEMAPHORE</h3>
+      <div class="sub">&lt;semaphore.h&gt; · POSIX 세마포어</div>
+      <ul>
+        <li>sem_wait(): 카운트가 양수면 1 감소, 0이면 대기</li>
+        <li>sem_post(): 소유권 검사 없이 토큰 1개 추가, 대기 스레드를 깨움</li>
+        <li>pshared=0: 같은 프로세스의 pthread 스레드 간 공유</li>
+        <li>초기값 3은 상한이 아님. 실제 sem_post()는 SEM_VALUE_MAX까지 증가 가능</li>
+        <li>이 시각화는 사용한 자원만 반환하며, 대기 순서는 설명을 위해 FIFO로 표시</li>
+        <li>초기값 1에서 반환 규칙으로 0/1을 유지하면 binary semaphore로 사용 가능</li>
+      </ul>
+      <pre><code>sem_t sem;
+sem_init(&amp;sem, 0, 3);
+
+/* pthread 스레드에서 */
+while (sem_wait(&amp;sem) == -1) {
+    if (errno != EINTR) {
+        /* 오류 처리: 자원을 사용하지 않고 종료 */
+        return NULL;
+    }
+}
+/* 자원 사용 */
+sem_post(&amp;sem);
+
+/* 모든 스레드의 사용이 끝난 뒤 */
+sem_destroy(&amp;sem);</code></pre>
+      <p>pthread.h와 별도로 semaphore.h와 errno.h를 포함합니다. sem_wait()의 신호 중단(EINTR)은 재시도하며, 실제 C 코드에서는 나머지 호출의 반환값도 검사하세요.</p>
+      <p>참고: <a href="https://pubs.opengroup.org/onlinepubs/9799919799.2024edition/functions/sem_init.html">POSIX sem_init()</a></p>
+    </div>
+  </div>
+
+  <footer>semaphore · interactive visualization</footer>
+</div>
+
+<script src="../operating-systems/shared.js"></script>
+<script>
+  let sm;
+
+  function renderSem() {
+    document.querySelectorAll('#sem-resources .resource').forEach((r, i) => {
+      r.querySelectorAll('.person-badge').forEach(e => e.remove());
+      r.classList.toggle('occupied-g', sm.slots[i] !== null);
+      if (sm.slots[i] !== null) {
+        r.appendChild(makeBadge(sm.slots[i]));
+      }
+    });
+    const avail = sm.slots.filter(s => s === null).length;
+    document.getElementById('sem-counter').textContent = 'count: ' + avail + ' / 3';
+    renderQueue('sem-queue', sm.queue);
+  }
+
+  function semWait() {
+    const id = sm.next++;
+    const fi = sm.slots.indexOf(null);
+    if (fi !== -1) {
+      sm.slots[fi] = id;
+      setStatus('sem-status', 'T' + id + ' sem_wait() 성공 → slot ' + (fi + 1) + ' 점유, 카운트 1 감소', 'ok');
+    } else {
+      sm.queue.push(id);
+      setStatus('sem-status', 'T' + id + ' 대기 — sem_wait()에서 블록됨 — 카운트가 0', 'warn');
+    }
+    renderSem();
+  }
+
+  function semRelease() {
+    const oi = sm.slots.findIndex(s => s !== null);
+    if (oi === -1) { setStatus('sem-status', '반환할 자원이 없습니다 — 이 예제는 사용한 자원만 반환합니다. 실제 sem_post()는 초기값 이상으로도 증가 가능', ''); return; }
+    const previous = sm.slots[oi];
+    const next = sm.queue.shift() ?? null;
+    sm.slots[oi] = next;
+    if (next !== null) {
+      setStatus('sem-status', 'sem_post() — 소유권 검사 없이 count 1 증가, 대기 중인 T' + next + ' 가 slot ' + (oi + 1) + ' 획득', 'ok');
+    } else {
+      setStatus('sem-status', 'sem_post() — 소유권 없이 slot ' + (oi + 1) + ' 의 T' + previous + ' 표시를 비우고 카운트 1 증가', 'ok');
+    }
+    renderSem();
+  }
+
+  function resetSem() {
+    sm = { slots: [null, null, null], queue: [], next: 1 };
+    setStatus('sem-status', 'sem_wait()를 눌러 카운트를 점유해보세요', '');
+    renderSem();
+  }
+
+
+  resetSem();
+</script>
+</body>
+</html>
